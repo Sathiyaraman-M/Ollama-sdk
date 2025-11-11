@@ -40,7 +40,7 @@ impl Transport for ReqwestTransport {
     ) -> Result<Pin<Box<dyn futures::Stream<Item = Result<Bytes>> + Send>>> {
         let mut url = self
             .base_url
-            .join("/v1/chat")
+            .join("/api/chat")
             .map_err(|e| Error::Client(e.to_string()))?;
         if request.stream.unwrap_or(false) {
             url.query_pairs_mut().append_pair("stream", "true");
