@@ -2,7 +2,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{Stream, StreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use reqwest::Url;
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
@@ -13,7 +13,7 @@ use crate::tools::registry::ToolRegistry;
 use crate::tools::{DynTool, ToolContext};
 use crate::transport::reqwest_transport::ReqwestTransport;
 use crate::transport::Transport;
-use crate::types::{ChatRequest, StreamEvent};
+use crate::types::{ChatRequest, ChatResponse, StreamEvent};
 
 #[derive(Clone)]
 pub struct OllamaClient {
@@ -106,6 +106,24 @@ impl OllamaClient {
         Ok(ChatStream {
             inner: Box::pin(stream_with_dispatch),
         })
+    }
+
+    pub async fn chat(&self, mut request: ChatRequest) -> Result<ChatResponse> {
+        request.stream = Some(false); // Ensure non-streaming
+        let response_bytes = self.transport.send_chat_request(request).await?;
+
+        // Collect all bytes from the stream
+        let full_response_bytes = response_bytes
+            .try_collect::<Vec<bytes::Bytes>>()
+            .await
+            .map_err(|e| Error::Client(e.to_string()))?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<u8>>();
+
+        // Deserialize the full response
+        serde_json::from_slice(&full_response_bytes)
+            .map_err(|e| Error::Protocol(format!("Failed to deserialize chat response: {}", e)))
     }
 
     pub async fn send_tool_result(
