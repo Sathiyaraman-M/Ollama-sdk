@@ -225,3 +225,9 @@ impl OllamaClientBuilder {
         self.build() // The builder already handles environment variables if not explicitly set
     }
 }
+
+impl Default for OllamaClientBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
