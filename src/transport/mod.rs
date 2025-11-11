@@ -7,6 +7,7 @@ use futures::Stream;
 use crate::errors::Result;
 use crate::types::ChatRequest;
 
+pub mod mock_transport;
 pub mod reqwest_transport;
 
 #[async_trait]
