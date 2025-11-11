@@ -29,7 +29,13 @@ pub struct OllamaClient {
 
 impl OllamaClient {
     pub fn builder() -> OllamaClientBuilder {
-        OllamaClientBuilder::new()
+        OllamaClientBuilder {
+            base_url: None,
+            api_key: None,
+            max_tool_runtime: None,
+            tool_registry: ToolRegistry::new(),
+            transport: None,
+        }
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, tool)))]
@@ -196,16 +202,6 @@ pub struct OllamaClientBuilder {
 }
 
 impl OllamaClientBuilder {
-    pub fn new() -> Self {
-        Self {
-            base_url: None,
-            api_key: None,
-            max_tool_runtime: None,
-            tool_registry: ToolRegistry::new(),
-            transport: None,
-        }
-    }
-
     pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = Some(base_url.into());
         self
@@ -259,11 +255,5 @@ impl OllamaClientBuilder {
 
     pub fn build_from_env(self) -> Result<OllamaClient> {
         self.build() // The builder already handles environment variables if not explicitly set
-    }
-}
-
-impl Default for OllamaClientBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
