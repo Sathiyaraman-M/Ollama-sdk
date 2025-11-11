@@ -71,4 +71,3 @@ pub enum StreamEvent {
 pub struct ChatResponse {
     pub message: Message,
 }
-

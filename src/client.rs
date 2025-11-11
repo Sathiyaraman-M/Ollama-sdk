@@ -7,10 +7,10 @@ use reqwest::Url;
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
-#[cfg(feature = "tracing")]
-use tracing::{instrument, error};
 #[cfg(feature = "metrics")]
 use metrics::{counter, gauge, histogram};
+#[cfg(feature = "tracing")]
+use tracing::{error, instrument};
 
 use crate::errors::{Error, Result};
 use crate::stream::parser::StreamParser;
@@ -86,14 +86,15 @@ impl OllamaClient {
                                 match timeout(max_tool_runtime, tool.call(input_clone, ctx)).await {
                                     Ok(Ok(result)) => {
                                         #[cfg(feature = "metrics")]
-                                        counter!("ollama_client.tool_call_successes_total").increment();
+                                        counter!("ollama_client.tool_call_successes_total")
+                                            .increment();
                                         result
-                                    },
+                                    }
                                     Ok(Err(e)) => {
                                         #[cfg(feature = "metrics")]
                                         counter!("ollama_client.tool_call_failures_total", "reason" => "tool_error").increment();
                                         serde_json::json!({"error": e.to_string()})
-                                    },
+                                    }
                                     Err(_) => {
                                         #[cfg(feature = "metrics")]
                                         counter!("ollama_client.tool_call_failures_total", "reason" => "timeout").increment();
