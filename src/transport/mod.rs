@@ -1,3 +1,5 @@
+use std::pin::Pin;
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::Stream;
@@ -12,11 +14,7 @@ pub trait Transport: Send + Sync + 'static {
     async fn send_chat_request(
         &self,
         request: ChatRequest,
-    ) -> Result<Box<dyn Stream<Item = Result<Bytes>> + Send + Unpin>>;
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send>>>;
 
-    async fn send_tool_result(
-        &self,
-        invocation_id: &str,
-        result: serde_json::Value,
-    ) -> Result<()>;
+    async fn send_tool_result(&self, invocation_id: &str, result: serde_json::Value) -> Result<()>;
 }

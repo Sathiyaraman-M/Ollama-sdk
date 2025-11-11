@@ -157,6 +157,7 @@ pub struct OllamaClientBuilder {
     api_key: Option<String>,
     max_tool_runtime: Option<Duration>,
     tool_registry: ToolRegistry,
+    transport: Option<Arc<dyn Transport + Send + Sync>>,
 }
 
 impl OllamaClientBuilder {
@@ -166,6 +167,7 @@ impl OllamaClientBuilder {
             api_key: None,
             max_tool_runtime: None,
             tool_registry: ToolRegistry::new(),
+            transport: None,
         }
     }
 
@@ -189,21 +191,31 @@ impl OllamaClientBuilder {
         self
     }
 
+    pub fn transport(mut self, transport: Arc<dyn Transport + Send + Sync>) -> Self {
+        self.transport = Some(transport);
+        self
+    }
+
     pub fn build(self) -> Result<OllamaClient> {
-        let base_url_str = self.base_url.unwrap_or_else(|| {
-            std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string())
-        });
-        let api_key = self
-            .api_key
-            .or_else(|| std::env::var("OLLAMA_API_KEY").ok());
+        let transport = if let Some(t) = self.transport {
+            t
+        } else {
+            let base_url_str = self.base_url.unwrap_or_else(|| {
+                std::env::var("OLLAMA_HOST")
+                    .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string())
+            });
+            let api_key = self
+                .api_key
+                .or_else(|| std::env::var("OLLAMA_API_KEY").ok());
 
-        let base_url = Url::parse(&base_url_str)
-            .map_err(|e| Error::Client(format!("Invalid base URL: {}", e)))?;
+            let base_url = Url::parse(&base_url_str)
+                .map_err(|e| Error::Client(format!("Invalid base URL: {}", e)))?;
 
-        let transport = ReqwestTransport::new(base_url, api_key)?;
+            Arc::new(ReqwestTransport::new(base_url, api_key)?)
+        };
 
         Ok(OllamaClient {
-            transport: Arc::new(transport),
+            transport,
             tool_registry: self.tool_registry,
             max_tool_runtime: self.max_tool_runtime.unwrap_or(Duration::from_secs(30)),
         })

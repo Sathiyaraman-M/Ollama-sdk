@@ -1,3 +1,5 @@
+use std::pin::Pin;
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::StreamExt;
@@ -15,7 +17,9 @@ pub struct ReqwestTransport {
 
 impl ReqwestTransport {
     pub fn new(base_url: Url, api_key: Option<String>) -> Result<Self> {
-        let client = Client::builder().build().map_err(|e| Error::Client(e.to_string()))?;
+        let client = Client::builder()
+            .build()
+            .map_err(|e| Error::Client(e.to_string()))?;
         Ok(Self {
             client,
             base_url,
@@ -29,8 +33,11 @@ impl Transport for ReqwestTransport {
     async fn send_chat_request(
         &self,
         request: ChatRequest,
-    ) -> Result<Box<dyn futures::Stream<Item = Result<Bytes>> + Send + Unpin>> {
-        let mut url = self.base_url.join("/v1/chat").map_err(|e| Error::Client(e.to_string()))?;
+    ) -> Result<Pin<Box<dyn futures::Stream<Item = Result<Bytes>> + Send>>> {
+        let mut url = self
+            .base_url
+            .join("/v1/chat")
+            .map_err(|e| Error::Client(e.to_string()))?;
         if request.stream.unwrap_or(false) {
             url.query_pairs_mut().append_pair("stream", "true");
         }
@@ -47,20 +54,22 @@ impl Transport for ReqwestTransport {
 
         let stream = response
             .bytes_stream()
-            .map(|item| item.map_err(Error::Transport));
+            .map(|item| item.map_err(Error::Transport))
+            .boxed();
 
-        Ok(Box::new(stream))
+        Ok(stream)
     }
 
-    async fn send_tool_result(
-        &self,
-        invocation_id: &str,
-        result: serde_json::Value,
-    ) -> Result<()> {
-        let url = self.base_url.join(&format!("/v1/calls/{}/result", invocation_id))
+    async fn send_tool_result(&self, invocation_id: &str, result: serde_json::Value) -> Result<()> {
+        let url = self
+            .base_url
+            .join(&format!("/v1/calls/{}/result", invocation_id))
             .map_err(|e| Error::Client(e.to_string()))?;
 
-        let mut request_builder = self.client.post(url).json(&serde_json::json!({ "result": result }));
+        let mut request_builder = self
+            .client
+            .post(url)
+            .json(&serde_json::json!({ "result": result }));
 
         if let Some(api_key) = &self.api_key {
             request_builder = request_builder.bearer_auth(api_key);

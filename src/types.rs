@@ -44,7 +44,7 @@ pub struct ToolSpec {
     pub schema: Option<serde_json::Value>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub enum StreamEvent {
     Partial {
         message: Message,
@@ -67,7 +67,7 @@ pub enum StreamEvent {
     },
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ChatResponse {
     pub message: Message,
 }
