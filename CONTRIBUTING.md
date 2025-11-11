@@ -4,7 +4,7 @@
 
 ### Bug Reports
 
-If you find a bug, please open an issue on our [GitHub Issues page](https://github.com/Sathiyaraman-M/Ollama-rs/issues). When reporting a bug, please include:
+If you find a bug, please open an issue on our [GitHub Issues page](https://github.com/Sathiyaraman-M/Ollama-sdk/issues). When reporting a bug, please include:
 
 *   A clear and concise description of the bug.
 *   Steps to reproduce the behavior.
@@ -15,15 +15,15 @@ If you find a bug, please open an issue on our [GitHub Issues page](https://gith
 
 ### Feature Requests
 
-If you have an idea for a new feature or enhancement, please open an issue on our [GitHub Issues page](https://github.com/Sathiyaraman-M/Ollama-rs/issues). Describe your idea clearly and explain why you think it would be a valuable addition to the library.
+If you have an idea for a new feature or enhancement, please open an issue on our [GitHub Issues page](https://github.com/Sathiyaraman-M/Ollama-sdk/issues). Describe your idea clearly and explain why you think it would be a valuable addition to the library.
 
 ### Code Contributions
 
-1.  **Fork the Repository:** Start by forking the `ollama-rs` repository to your GitHub account.
+1.  **Fork the Repository:** Start by forking the `ollama-sdk` repository to your GitHub account.
 2.  **Clone Your Fork:** Clone your forked repository to your local machine:
     ```bash
-    git clone https://github.com/Sathiyaraman-M/Ollama-rs.git
-    cd ollama-rs
+    git clone https://github.com/Sathiyaraman-M/Ollama-sdk.git
+    cd ollama-sdk
     ```
 3.  **Create a New Branch:** Create a new branch for your feature or bug fix:
     ```bash
@@ -52,7 +52,7 @@ If you have an idea for a new feature or enhancement, please open an issue on ou
     ```bash
     git push origin feature/your-feature-name
     ```
-10. **Create a Pull Request:** Open a pull request from your fork to the `main` branch of the `ollama-rs` repository. Provide a detailed description of your changes.
+10. **Create a Pull Request:** Open a pull request from your fork to the `main` branch of the `ollama-sdk` repository. Provide a detailed description of your changes.
 
 ## Development Environment
 
@@ -61,6 +61,6 @@ If you have an idea for a new feature or enhancement, please open an issue on ou
 
 ## License
 
-By contributing to `ollama-rs`, you agree that your contributions will be licensed under the MIT License.
+By contributing to `ollama-sdk`, you agree that your contributions will be licensed under the MIT License.
 
 Thank you for contributing!

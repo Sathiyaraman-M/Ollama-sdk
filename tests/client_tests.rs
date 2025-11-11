@@ -4,11 +4,11 @@ use std::time::Duration;
 use futures::StreamExt;
 use serde_json::json;
 
-use ollama_rs::client::OllamaClient;
-use ollama_rs::errors::{Error, Result};
-use ollama_rs::tools::{Tool, ToolContext};
-use ollama_rs::transport::mock_transport::MockTransport;
-use ollama_rs::types::{ChatRequest, ChatResponse, Message, Role, StreamEvent};
+use ollama_sdk::client::OllamaClient;
+use ollama_sdk::errors::{Error, Result};
+use ollama_sdk::tools::{Tool, ToolContext};
+use ollama_sdk::transport::mock_transport::MockTransport;
+use ollama_sdk::types::{ChatRequest, ChatResponse, Message, Role, StreamEvent};
 
 // --- Mock Tool Implementation ---
 struct MockSearchTool;

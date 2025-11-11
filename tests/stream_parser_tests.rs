@@ -2,9 +2,9 @@ use bytes::Bytes;
 use futures::{stream, StreamExt};
 use serde_json::json;
 
-use ollama_rs::errors::Result;
-use ollama_rs::stream::parser::StreamParser;
-use ollama_rs::types::{Role, StreamEvent};
+use ollama_sdk::errors::Result;
+use ollama_sdk::stream::parser::StreamParser;
+use ollama_sdk::types::{Role, StreamEvent};
 
 // Helper function to create a stream from a vector of byte chunks
 fn create_byte_stream(

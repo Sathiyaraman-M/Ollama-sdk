@@ -1,6 +1,8 @@
-# Ollama-rs
+# Ollama-sdk
 
 An idiomatic Rust library for interacting with the Ollama API, focusing on streaming, tool calling, and ease of use.
+
+> Note: This is not an official Ollama SDK.
 
 ## Features
 
@@ -13,20 +15,20 @@ An idiomatic Rust library for interacting with the Ollama API, focusing on strea
 
 ## Installation
 
-> Note that: `ollama-rs` is not yet published on crates.io. You need to include it via Git.
+> Note that: `ollama-sdk` is not yet published on crates.io. You need to include it via Git.
 
-Add `ollama-rs` to your `Cargo.toml` file:
+Add `ollama-sdk` to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ollama-rs = { git = "https://github.com/Sathiyaraman-M/Ollama-rs.git", branch = "main" }
+ollama-sdk = { git = "https://github.com/Sathiyaraman-M/Ollama-sdk.git", branch = "main" }
 ```
 
 To enable optional features like `tracing` or `metrics`:
 
 ```toml
 [dependencies]
-ollama-rs = { git = "https://github.com/Sathiyaraman-M/Ollama-rs.git", branch = "main", features = ["tracing", "metrics"] }
+ollama-sdk = { git = "https://github.com/Sathiyaraman-M/Ollama-sdk.git", branch = "main", features = ["tracing", "metrics"] }
 ```
 
 ## Usage
@@ -34,9 +36,9 @@ ollama-rs = { git = "https://github.com/Sathiyaraman-M/Ollama-rs.git", branch = 
 ### Basic Chat (non-streaming)
 
 ```rust
-use ollama_rs::OllamaClient;
-use ollama_rs::types::Message;
-use ollama_rs::types::Role;
+use ollama_sdk::OllamaClient;
+use ollama_sdk::types::Message;
+use ollama_sdk::types::Role;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -57,9 +59,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Streaming Chat
 
 ```rust
-use ollama_rs::OllamaClient;
-use ollama_rs::types::Message;
-use ollama_rs::types::Role;
+use ollama_sdk::OllamaClient;
+use ollama_sdk::types::Message;
+use ollama_sdk::types::Role;
 use futures::StreamExt;
 
 #[tokio::main]
