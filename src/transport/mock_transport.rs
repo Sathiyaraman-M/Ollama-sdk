@@ -1,6 +1,9 @@
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
+#[cfg(feature = "tracing")]
+use tracing::instrument;
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::stream::{self};
@@ -40,6 +43,7 @@ impl MockTransport {
 
 #[async_trait]
 impl Transport for MockTransport {
+    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
     async fn send_chat_request(
         &self,
         request: ChatRequest,
@@ -80,6 +84,7 @@ impl Transport for MockTransport {
         }
     }
 
+    #[cfg_attr(feature = "tracing", instrument(skip(self, result)))]
     async fn send_tool_result(&self, invocation_id: &str, result: serde_json::Value) -> Result<()> {
         self.tool_results_sent
             .lock()

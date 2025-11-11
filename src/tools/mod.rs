@@ -28,8 +28,10 @@ pub trait Tool: Send + Sync + 'static {
     /// Executes the tool with the given input.
     /// The input is typically a JSON object provided by the model.
     /// The tool should return a JSON object as its result.
-    #[cfg_attr(feature = "tracing", instrument(skip(self, input, ctx)))]
-    async fn call(&self, input: Value, ctx: ToolContext) -> Result<Value, Error>;
+    #[cfg_attr(feature = "tracing", instrument(skip(self, _input, _ctx)))]
+    async fn call(&self, _input: Value, _ctx: ToolContext) -> Result<Value, Error> {
+        Ok(Value::Null)
+    }
 }
 
 pub type DynTool = Arc<dyn Tool>;

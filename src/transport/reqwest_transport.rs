@@ -1,5 +1,8 @@
 use std::pin::Pin;
 
+#[cfg(feature = "tracing")]
+use tracing::instrument;
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::StreamExt;
@@ -30,6 +33,7 @@ impl ReqwestTransport {
 
 #[async_trait]
 impl Transport for ReqwestTransport {
+    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
     async fn send_chat_request(
         &self,
         request: ChatRequest,
@@ -60,6 +64,7 @@ impl Transport for ReqwestTransport {
         Ok(stream)
     }
 
+    #[cfg_attr(feature = "tracing", instrument(skip(self, result)))]
     async fn send_tool_result(&self, invocation_id: &str, result: serde_json::Value) -> Result<()> {
         let url = self
             .base_url

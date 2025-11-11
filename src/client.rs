@@ -8,7 +8,7 @@ use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "metrics")]
-use metrics::{counter, gauge, histogram};
+use metrics::counter;
 #[cfg(feature = "tracing")]
 use tracing::{error, instrument};
 
@@ -45,7 +45,7 @@ impl OllamaClient {
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
     pub async fn chat_stream(&self, mut request: ChatRequest) -> Result<ChatStream> {
         #[cfg(feature = "metrics")]
-        counter!("ollama_client.chat_requests_total", "type" => "streaming").increment();
+        counter!("ollama_client.chat_requests_total", "type" => "streaming").increment(1);
 
         request.stream = Some(true); // Ensure streaming is enabled
         let byte_stream = self.transport.send_chat_request(request).await?;
@@ -75,7 +75,7 @@ impl OllamaClient {
 
                         tokio::spawn(async move {
                             #[cfg(feature = "metrics")]
-                            counter!("ollama_client.tool_calls_total").increment();
+                            counter!("ollama_client.tool_calls_total").increment(1);
 
                             let tool_result = if let Some(tool) =
                                 tool_registry_for_tool.get_tool(&name_clone)
@@ -87,23 +87,23 @@ impl OllamaClient {
                                     Ok(Ok(result)) => {
                                         #[cfg(feature = "metrics")]
                                         counter!("ollama_client.tool_call_successes_total")
-                                            .increment();
+                                            .increment(1);
                                         result
                                     }
                                     Ok(Err(e)) => {
                                         #[cfg(feature = "metrics")]
-                                        counter!("ollama_client.tool_call_failures_total", "reason" => "tool_error").increment();
+                                        counter!("ollama_client.tool_call_failures_total", "reason" => "tool_error").increment(1);
                                         serde_json::json!({"error": e.to_string()})
                                     }
                                     Err(_) => {
                                         #[cfg(feature = "metrics")]
-                                        counter!("ollama_client.tool_call_failures_total", "reason" => "timeout").increment();
+                                        counter!("ollama_client.tool_call_failures_total", "reason" => "timeout").increment(1);
                                         serde_json::json!({"error": format!("Tool '{}' timed out after {:?}", name_clone, max_tool_runtime)})
                                     }
                                 }
                             } else {
                                 #[cfg(feature = "metrics")]
-                                counter!("ollama_client.tool_call_failures_total", "reason" => "tool_not_found").increment();
+                                counter!("ollama_client.tool_call_failures_total", "reason" => "tool_not_found").increment(1);
                                 serde_json::json!({"error": format!("Tool '{}' not found", name_clone)})
                             };
 
@@ -141,7 +141,7 @@ impl OllamaClient {
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
     pub async fn chat(&self, mut request: ChatRequest) -> Result<ChatResponse> {
         #[cfg(feature = "metrics")]
-        counter!("ollama_client.chat_requests_total", "type" => "non_streaming").increment();
+        counter!("ollama_client.chat_requests_total", "type" => "non_streaming").increment(1);
 
         request.stream = Some(false); // Ensure non-streaming
         let response_bytes = self.transport.send_chat_request(request).await?;
