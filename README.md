@@ -15,20 +15,18 @@ An idiomatic Rust library for interacting with the Ollama API, focusing on strea
 
 ## Installation
 
-> Note that: `ollama-sdk` is not yet published on crates.io. You need to include it via Git.
-
 Add `ollama-sdk` to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ollama-sdk = { git = "https://github.com/Sathiyaraman-M/Ollama-sdk.git", branch = "main" }
+ollama-sdk = "0.1.1"
 ```
 
 To enable optional features like `tracing` or `metrics`:
 
 ```toml
 [dependencies]
-ollama-sdk = { git = "https://github.com/Sathiyaraman-M/Ollama-sdk.git", branch = "main", features = ["tracing", "metrics"] }
+ollama-sdk = { version = "0.1.1", features = ["tracing", "metrics"] }
 ```
 
 ## Usage
