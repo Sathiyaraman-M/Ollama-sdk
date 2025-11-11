@@ -23,30 +23,8 @@ pub struct OllamaClient {
 }
 
 impl OllamaClient {
-    pub fn new(base_url: impl Into<String>) -> Result<Self> {
-        let base_url = Url::parse(&base_url.into())
-            .map_err(|e| Error::Client(format!("Invalid base URL: {}", e)))?;
-        let transport = ReqwestTransport::new(base_url, None)?;
-        Ok(Self {
-            transport: Arc::new(transport),
-            tool_registry: ToolRegistry::new(),
-            max_tool_runtime: Duration::from_secs(30), // Default to 30 seconds
-        })
-    }
-
-    pub fn new_from_env() -> Result<Self> {
-        let base_url =
-            std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
-        let api_key = std::env::var("OLLAMA_API_KEY").ok();
-
-        let base_url = Url::parse(&base_url)
-            .map_err(|e| Error::Client(format!("Invalid OLLAMA_HOST URL: {}", e)))?;
-        let transport = ReqwestTransport::new(base_url, api_key)?;
-        Ok(Self {
-            transport: Arc::new(transport),
-            tool_registry: ToolRegistry::new(),
-            max_tool_runtime: Duration::from_secs(30), // Default to 30 seconds
-        })
+    pub fn builder() -> OllamaClientBuilder {
+        OllamaClientBuilder::new()
     }
 
     pub fn register_tool(&mut self, tool: DynTool) -> Result<()> {
@@ -152,5 +130,68 @@ impl Stream for ChatStream {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         self.inner.as_mut().poll_next(cx)
+    }
+}
+
+// OllamaClientBuilder
+pub struct OllamaClientBuilder {
+    base_url: Option<String>,
+    api_key: Option<String>,
+    max_tool_runtime: Option<Duration>,
+    tool_registry: ToolRegistry,
+}
+
+impl OllamaClientBuilder {
+    pub fn new() -> Self {
+        Self {
+            base_url: None,
+            api_key: None,
+            max_tool_runtime: None,
+            tool_registry: ToolRegistry::new(),
+        }
+    }
+
+    pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url = Some(base_url.into());
+        self
+    }
+
+    pub fn api_key(mut self, api_key: impl Into<String>) -> Self {
+        self.api_key = Some(api_key.into());
+        self
+    }
+
+    pub fn max_tool_runtime(mut self, duration: Duration) -> Self {
+        self.max_tool_runtime = Some(duration);
+        self
+    }
+
+    pub fn tool_registry(mut self, registry: ToolRegistry) -> Self {
+        self.tool_registry = registry;
+        self
+    }
+
+    pub fn build(self) -> Result<OllamaClient> {
+        let base_url_str = self.base_url.unwrap_or_else(|| {
+            std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string())
+        });
+        let api_key = self
+            .api_key
+            .or_else(|| std::env::var("OLLAMA_API_KEY").ok());
+
+        let base_url = Url::parse(&base_url_str)
+            .map_err(|e| Error::Client(format!("Invalid base URL: {}", e)))?;
+
+        let transport = ReqwestTransport::new(base_url, api_key)?;
+
+        Ok(OllamaClient {
+            transport: Arc::new(transport),
+            tool_registry: self.tool_registry,
+            max_tool_runtime: self.max_tool_runtime.unwrap_or(Duration::from_secs(30)),
+        })
+    }
+
+    pub fn build_from_env(self) -> Result<OllamaClient> {
+        self.build() // The builder already handles environment variables if not explicitly set
     }
 }
