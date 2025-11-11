@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+#[cfg(feature = "tracing")]
+use tracing::instrument;
+
 use async_trait::async_trait;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
@@ -25,6 +28,7 @@ pub trait Tool: Send + Sync + 'static {
     /// Executes the tool with the given input.
     /// The input is typically a JSON object provided by the model.
     /// The tool should return a JSON object as its result.
+    #[cfg_attr(feature = "tracing", instrument(skip(self, input, ctx)))]
     async fn call(&self, input: Value, ctx: ToolContext) -> Result<Value, Error>;
 }
 
