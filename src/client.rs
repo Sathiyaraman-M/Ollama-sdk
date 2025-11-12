@@ -252,8 +252,4 @@ impl OllamaClientBuilder {
             max_tool_runtime: self.max_tool_runtime.unwrap_or(Duration::from_secs(30)),
         })
     }
-
-    pub fn build_from_env(self) -> Result<OllamaClient> {
-        self.build() // The builder already handles environment variables if not explicitly set
-    }
 }
