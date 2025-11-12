@@ -8,9 +8,8 @@ use ollama_sdk::client::OllamaClient;
 use ollama_sdk::errors::{Error, Result};
 use ollama_sdk::tools::{Tool, ToolContext};
 use ollama_sdk::transport::mock_transport::MockTransport;
-use ollama_sdk::types::{
-    ChatResponse, Message, Role, SimpleChatRequest, StreamEvent, StreamingChatRequest,
-};
+use ollama_sdk::types::chat::{ChatResponse, SimpleChatRequest, StreamEvent, StreamingChatRequest};
+use ollama_sdk::types::{Message, Role};
 
 // --- Mock Tool Implementation ---
 struct MockSearchTool;

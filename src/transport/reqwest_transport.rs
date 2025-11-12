@@ -10,7 +10,7 @@ use reqwest::{Client, Url};
 
 use crate::errors::{Error, Result};
 use crate::transport::Transport;
-use crate::types::ChatRequest;
+use crate::types::chat::ChatRequest;
 
 pub struct ReqwestTransport {
     client: Client,

@@ -4,7 +4,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use crate::errors::Result;
-use crate::types::{Message, Role, StreamEvent};
+use crate::types::chat::StreamEvent;
+use crate::types::{Message, Role};
 
 pub struct StreamParser<S>
 where

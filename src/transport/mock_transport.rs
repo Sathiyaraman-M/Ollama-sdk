@@ -12,7 +12,7 @@ use futures::StreamExt;
 
 use crate::errors::{Error, Result};
 use crate::transport::Transport;
-use crate::types::{ChatRequest, ChatResponse, StreamEvent};
+use crate::types::chat::{ChatRequest, ChatResponse, StreamEvent};
 
 #[derive(Clone, Default)]
 pub struct MockTransport {

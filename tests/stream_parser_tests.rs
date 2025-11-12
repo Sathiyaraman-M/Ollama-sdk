@@ -4,7 +4,8 @@ use serde_json::json;
 
 use ollama_sdk::errors::Result;
 use ollama_sdk::stream::parser::StreamParser;
-use ollama_sdk::types::{Role, StreamEvent};
+use ollama_sdk::types::chat::StreamEvent;
+use ollama_sdk::types::Role;
 
 // Helper function to create a stream from a vector of byte chunks
 fn create_byte_stream(

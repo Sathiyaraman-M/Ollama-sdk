@@ -18,7 +18,7 @@ use crate::tools::registry::ToolRegistry;
 use crate::tools::{DynTool, ToolContext};
 use crate::transport::reqwest_transport::ReqwestTransport;
 use crate::transport::Transport;
-use crate::types::{ChatResponse, SimpleChatRequest, StreamEvent, StreamingChatRequest};
+use crate::types::chat::{ChatResponse, SimpleChatRequest, StreamEvent, StreamingChatRequest};
 
 #[derive(Clone)]
 pub struct OllamaClient {

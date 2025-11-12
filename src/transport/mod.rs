@@ -5,7 +5,7 @@ use bytes::Bytes;
 use futures::Stream;
 
 use crate::errors::Result;
-use crate::types::ChatRequest;
+use crate::types::chat::ChatRequest;
 
 pub mod mock_transport;
 pub mod reqwest_transport;
