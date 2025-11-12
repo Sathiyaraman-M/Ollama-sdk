@@ -8,7 +8,9 @@ use ollama_sdk::client::OllamaClient;
 use ollama_sdk::errors::{Error, Result};
 use ollama_sdk::tools::{Tool, ToolContext};
 use ollama_sdk::transport::mock_transport::MockTransport;
-use ollama_sdk::types::{ChatRequest, ChatResponse, Message, Role, StreamEvent};
+use ollama_sdk::types::{
+    ChatResponse, Message, Role, SimpleChatRequest, StreamEvent, StreamingChatRequest,
+};
 
 // --- Mock Tool Implementation ---
 struct MockSearchTool;
@@ -48,13 +50,11 @@ impl Tool for MockFailingTool {
 // --- Tests ---
 
 #[tokio::test]
-async fn test_chat_non_streaming() -> Result<()> {
+async fn test_chat_simple() -> Result<()> {
     let expected_response = ChatResponse {
         message: Message {
             role: Role::Assistant,
             content: "Hello from mock!".to_string(),
-            name: None,
-            metadata: None,
         },
     };
     let mock_transport =
@@ -66,22 +66,16 @@ async fn test_chat_non_streaming() -> Result<()> {
         .transport(mock_transport.clone()) // Pass the mock transport to the builder
         .build()?;
 
-    let request = ChatRequest {
+    let request = SimpleChatRequest {
         model: "test-model".to_string(),
         messages: vec![Message {
             role: Role::User,
             content: "Hi".to_string(),
-            name: None,
-            metadata: None,
         }],
-        stream: Some(false),
-        max_tokens: None,
-        temperature: None,
-        tools: None,
-        request_id: None,
+        ..Default::default()
     };
 
-    let response = client.chat(request).await?;
+    let response = client.chat_simple(request).await?;
     assert_eq!(response.message.content, expected_response.message.content);
 
     Ok(())
@@ -94,16 +88,12 @@ async fn test_chat_stream_partial_events() -> Result<()> {
             message: Message {
                 role: Role::Assistant,
                 content: "Hello".to_string(),
-                name: None,
-                metadata: None,
             },
         },
         StreamEvent::Partial {
             message: Message {
                 role: Role::Assistant,
                 content: " world".to_string(),
-                name: None,
-                metadata: None,
             },
         },
         StreamEvent::Done {
@@ -117,19 +107,13 @@ async fn test_chat_stream_partial_events() -> Result<()> {
         .transport(mock_transport.clone())
         .build()?;
 
-    let request = ChatRequest {
+    let request = StreamingChatRequest {
         model: "test-model".to_string(),
         messages: vec![Message {
             role: Role::User,
             content: "Stream me".to_string(),
-            name: None,
-            metadata: None,
         }],
-        stream: Some(true),
-        max_tokens: None,
-        temperature: None,
-        tools: None,
-        request_id: None,
+        ..Default::default()
     };
 
     let mut stream = client.chat_stream(request).await?;
@@ -158,8 +142,6 @@ async fn test_chat_stream_tool_dispatch_success() -> Result<()> {
             message: Message {
                 role: Role::Assistant,
                 content: "Searching...".to_string(),
-                name: None,
-                metadata: None,
             },
         },
         StreamEvent::Done {
@@ -175,19 +157,13 @@ async fn test_chat_stream_tool_dispatch_success() -> Result<()> {
 
     client.register_tool(Arc::new(MockSearchTool))?;
 
-    let request = ChatRequest {
+    let request = StreamingChatRequest {
         model: "test-model".to_string(),
         messages: vec![Message {
             role: Role::User,
             content: "Find rust docs".to_string(),
-            name: None,
-            metadata: None,
         }],
-        stream: Some(true),
-        max_tokens: None,
-        temperature: None,
-        tools: None,
-        request_id: None,
+        ..Default::default()
     };
 
     let mut stream = client.chat_stream(request).await?;
@@ -237,8 +213,6 @@ async fn test_chat_stream_tool_dispatch_failure() -> Result<()> {
             message: Message {
                 role: Role::Assistant,
                 content: "Tool failed...".to_string(),
-                name: None,
-                metadata: None,
             },
         },
         StreamEvent::Done {
@@ -254,19 +228,13 @@ async fn test_chat_stream_tool_dispatch_failure() -> Result<()> {
 
     client.register_tool(Arc::new(MockFailingTool))?;
 
-    let request = ChatRequest {
+    let request = StreamingChatRequest {
         model: "test-model".to_string(),
         messages: vec![Message {
             role: Role::User,
             content: "Run failing tool".to_string(),
-            name: None,
-            metadata: None,
         }],
-        stream: Some(true),
-        max_tokens: None,
-        temperature: None,
-        tools: None,
-        request_id: None,
+        ..Default::default()
     };
 
     let mut stream = client.chat_stream(request).await?;
@@ -335,19 +303,13 @@ async fn test_chat_stream_tool_timeout() -> Result<()> {
 
     client.register_tool(Arc::new(MockSlowTool))?;
 
-    let request = ChatRequest {
+    let request = StreamingChatRequest {
         model: "test-model".to_string(),
         messages: vec![Message {
             role: Role::User,
             content: "Run slow tool".to_string(),
-            name: None,
-            metadata: None,
         }],
-        stream: Some(true),
-        max_tokens: None,
-        temperature: None,
-        tools: None,
-        request_id: None,
+        ..Default::default()
     };
 
     let mut stream = client.chat_stream(request).await?;

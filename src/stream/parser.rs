@@ -47,8 +47,6 @@ where
                         message: Message {
                             role: Role::Assistant,
                             content: line_str.to_string(),
-                            name: None,
-                            metadata: None,
                         },
                     }));
                 }
@@ -100,8 +98,6 @@ where
                                 message: Message {
                                     role: Role::Assistant,
                                     content: content.trim().to_string(),
-                                    name: None,
-                                    metadata: None,
                                 },
                             })));
                         }

@@ -18,7 +18,7 @@ use crate::tools::registry::ToolRegistry;
 use crate::tools::{DynTool, ToolContext};
 use crate::transport::reqwest_transport::ReqwestTransport;
 use crate::transport::Transport;
-use crate::types::{ChatRequest, ChatResponse, StreamEvent};
+use crate::types::{ChatResponse, SimpleChatRequest, StreamEvent, StreamingChatRequest};
 
 #[derive(Clone)]
 pub struct OllamaClient {
@@ -49,12 +49,11 @@ impl OllamaClient {
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
-    pub async fn chat_stream(&self, mut request: ChatRequest) -> Result<ChatStream> {
+    pub async fn chat_stream(&self, request: StreamingChatRequest) -> Result<ChatStream> {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.chat_requests_total", "type" => "streaming").increment(1);
 
-        request.stream = Some(true); // Ensure streaming is enabled
-        let byte_stream = self.transport.send_chat_request(request).await?;
+        let byte_stream = self.transport.send_chat_request(request.into()).await?;
         let parser = StreamParser::new(byte_stream);
 
         let client_arc = Arc::new(self.clone()); // Clone client for tool dispatching
@@ -145,12 +144,11 @@ impl OllamaClient {
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
-    pub async fn chat(&self, mut request: ChatRequest) -> Result<ChatResponse> {
+    pub async fn chat_simple(&self, request: SimpleChatRequest) -> Result<ChatResponse> {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.chat_requests_total", "type" => "non_streaming").increment(1);
 
-        request.stream = Some(false); // Ensure non-streaming
-        let response_bytes = self.transport.send_chat_request(request).await?;
+        let response_bytes = self.transport.send_chat_request(request.into()).await?;
 
         // Collect all bytes from the stream
         let full_response_bytes = response_bytes
