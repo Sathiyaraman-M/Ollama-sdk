@@ -13,7 +13,7 @@ use metrics::counter;
 use tracing::{error, instrument};
 
 use crate::errors::{Error, Result};
-use crate::stream::parser::StreamParser;
+use crate::stream::chat_stream_parser::ChatStreamParser;
 use crate::tools::registry::ToolRegistry;
 use crate::tools::{DynTool, ToolContext};
 use crate::transport::reqwest_transport::ReqwestTransport;
@@ -54,7 +54,7 @@ impl OllamaClient {
         counter!("ollama_client.chat_requests_total", "type" => "streaming").increment(1);
 
         let byte_stream = self.transport.send_chat_request(request.into()).await?;
-        let parser = StreamParser::new(byte_stream);
+        let parser = ChatStreamParser::new(byte_stream);
 
         let client_arc = Arc::new(self.clone()); // Clone client for tool dispatching
 

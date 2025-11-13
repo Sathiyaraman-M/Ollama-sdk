@@ -3,7 +3,7 @@ use futures::{stream, StreamExt};
 use serde_json::json;
 
 use ollama_sdk::errors::Result;
-use ollama_sdk::stream::parser::StreamParser;
+use ollama_sdk::stream::chat_stream_parser::ChatStreamParser;
 use ollama_sdk::types::chat::ChatStreamEvent;
 use ollama_sdk::types::Role;
 
@@ -18,7 +18,7 @@ fn create_byte_stream(
 async fn test_parse_single_partial_event() {
     let json_line = r#"{"Partial":{"message":{"role":"assistant","content":"hello"}}}"#.to_string();
     let byte_stream = create_byte_stream(vec![format!("{}\n", json_line)]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
@@ -41,7 +41,7 @@ async fn test_parse_multiple_partial_events() {
         format!("{}\n", json_line1),
         format!("{}\n", json_line2),
     ]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event1 = parser.next().await.unwrap().unwrap();
     match event1 {
@@ -63,7 +63,7 @@ async fn test_parse_tool_call_event() {
         r#"{"ToolCall":{"invocation_id":"123","name":"search","input":{"query":"rust"}}}"#
             .to_string();
     let byte_stream = create_byte_stream(vec![format!("{}\n", json_line)]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
@@ -86,7 +86,7 @@ async fn test_parse_done_event() {
     let json_line =
         r#"{"Done":{"final_message":{"role":"assistant","content":"finished"}}}"#.to_string();
     let byte_stream = create_byte_stream(vec![format!("{}\n", json_line)]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
@@ -110,7 +110,7 @@ async fn test_handle_incomplete_lines_and_buffering() {
         format!("{}\n{}", &json_line1[10..], json_line2), // Rest of first line + incomplete second line
         "\n".to_string(),                                 // Newline for second line
     ]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event1 = parser.next().await.unwrap().unwrap();
     match event1 {
@@ -136,7 +136,7 @@ async fn test_handle_non_json_lines_as_partial() {
         format!("{}\n", non_json_line),
         format!("{}\n", json_line),
     ]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event1 = parser.next().await.unwrap().unwrap();
     match event1 {
@@ -161,7 +161,7 @@ async fn test_handle_non_json_lines_as_partial() {
 #[tokio::test]
 async fn test_empty_stream() {
     let byte_stream = create_byte_stream(vec![]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
     assert!(parser.next().await.is_none());
 }
 
@@ -173,7 +173,7 @@ async fn test_stream_with_empty_lines() {
         format!("{}\n", json_line),
         "\n\n".to_string(),
     ]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
@@ -190,7 +190,7 @@ async fn test_stream_ends_with_partial_line() {
         json_line[..10].to_string(), // Incomplete first line
         json_line[10..].to_string(), // Rest of first line, but no trailing newline
     ]);
-    let mut parser = StreamParser::new(byte_stream);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
     let event = parser.next().await.unwrap().unwrap();
     match event {

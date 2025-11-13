@@ -7,7 +7,7 @@ use crate::errors::Result;
 use crate::types::chat::ChatStreamEvent;
 use crate::types::{Message, Role};
 
-pub struct StreamParser<S>
+pub struct ChatStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
@@ -15,7 +15,7 @@ where
     buffer: Vec<u8>,
 }
 
-impl<S> StreamParser<S>
+impl<S> ChatStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl<S> Stream for StreamParser<S>
+impl<S> Stream for ChatStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {

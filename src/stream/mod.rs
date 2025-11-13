@@ -1,1 +1,1 @@
-pub mod parser;
+pub mod chat_stream_parser;
