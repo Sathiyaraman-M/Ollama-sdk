@@ -13,6 +13,7 @@ use futures::StreamExt;
 use crate::errors::{Error, Result};
 use crate::transport::Transport;
 use crate::types::chat::{ChatRequest, ChatResponse, ChatStreamEvent};
+use crate::types::generate::GenerateRequest;
 
 #[derive(Clone, Default)]
 pub struct MockTransport {
@@ -43,6 +44,47 @@ impl MockTransport {
 
 #[async_trait]
 impl Transport for MockTransport {
+    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
+    async fn send_generate_request(
+        &self,
+        request: GenerateRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send>>> {
+        if request.stream {
+            let responses = self
+                .chat_responses
+                .lock()
+                .unwrap()
+                .drain(..)
+                .collect::<Vec<_>>();
+            let byte_stream = stream::iter(responses)
+                .map(|event| {
+                    let json_string = serde_json::to_string(&event).map_err(|e| {
+                        Error::Protocol(format!("Failed to serialize mock event: {}", e))
+                    })?;
+                    Ok(Bytes::from(format!("{}\n", json_string)))
+                })
+                .boxed();
+            Ok(byte_stream)
+        } else {
+            let response = self
+                .non_streaming_response
+                .lock()
+                .unwrap()
+                .take()
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "MockTransport: No non-streaming response configured".to_string(),
+                    )
+                })?;
+
+            let json_string = serde_json::to_string(&response).map_err(|e| {
+                Error::Protocol(format!("Failed to serialize mock generate response: {}", e))
+            })?;
+            let byte_stream = stream::once(async { Ok(Bytes::from(json_string)) }).boxed();
+            Ok(byte_stream)
+        }
+    }
+
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
     async fn send_chat_request(
         &self,

@@ -13,12 +13,16 @@ use tracing::{error, instrument};
 
 use crate::errors::{Error, Result};
 use crate::stream::chat_stream_parser::ChatStreamParser;
+use crate::stream::generate_stream_parser::GenerateStreamParser;
 use crate::tools::registry::ToolRegistry;
 use crate::tools::{DynTool, ToolContext};
 use crate::transport::reqwest_transport::ReqwestTransport;
 use crate::transport::Transport;
 use crate::types::chat::{
     ChatResponse, ChatStream, ChatStreamEvent, SimpleChatRequest, StreamingChatRequest,
+};
+use crate::types::generate::{
+    GenerateResponse, GenerateStream, SimpleGenerateRequest, StreamingGenerateRequest,
 };
 
 #[derive(Clone)]
@@ -163,6 +167,50 @@ impl OllamaClient {
         // Deserialize the full response
         serde_json::from_slice(&full_response_bytes)
             .map_err(|e| Error::Protocol(format!("Failed to deserialize chat response: {}", e)))
+    }
+
+    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
+    pub async fn generate_stream(
+        &self,
+        request: StreamingGenerateRequest,
+    ) -> Result<GenerateStream> {
+        #[cfg(feature = "metrics")]
+        counter!("ollama_client.generate_requests_total", "type" => "streaming").increment(1);
+
+        let byte_stream = self.transport.send_generate_request(request.into()).await?;
+        let parser = GenerateStreamParser::new(byte_stream);
+
+        let response_stream = futures::stream::unfold(parser, |mut parser| async {
+            parser.next().await.map(|event| (event, parser))
+        });
+
+        Ok(GenerateStream {
+            inner: Box::pin(response_stream),
+        })
+    }
+
+    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
+    pub async fn generate_simple(
+        &self,
+        request: SimpleGenerateRequest,
+    ) -> Result<GenerateResponse> {
+        #[cfg(feature = "metrics")]
+        counter!("ollama_client.generate_requests_total", "type" => "non_streaming").increment(1);
+
+        let response_bytes = self.transport.send_generate_request(request.into()).await?;
+
+        // Collect all bytes from the stream
+        let full_response_bytes = response_bytes
+            .try_collect::<Vec<bytes::Bytes>>()
+            .await
+            .map_err(|e| Error::Client(e.to_string()))?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<u8>>();
+
+        // Deserialize the full response
+        serde_json::from_slice(&full_response_bytes)
+            .map_err(|e| Error::Protocol(format!("Failed to deserialize generate response: {}", e)))
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self)))]

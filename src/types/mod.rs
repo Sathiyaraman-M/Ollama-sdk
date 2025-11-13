@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod generate;
 
 use serde::{Deserialize, Serialize};
 
@@ -36,4 +37,9 @@ pub enum ThinkingLevel {
     High,
     Medium,
     Low,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct OllamaError {
+    pub error: String,
 }
