@@ -1,8 +1,7 @@
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use reqwest::Url;
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
@@ -18,7 +17,9 @@ use crate::tools::registry::ToolRegistry;
 use crate::tools::{DynTool, ToolContext};
 use crate::transport::reqwest_transport::ReqwestTransport;
 use crate::transport::Transport;
-use crate::types::chat::{ChatResponse, ChatStreamEvent, SimpleChatRequest, StreamingChatRequest};
+use crate::types::chat::{
+    ChatResponse, ChatStream, ChatStreamEvent, SimpleChatRequest, StreamingChatRequest,
+};
 
 #[derive(Clone)]
 pub struct OllamaClient {
@@ -171,22 +172,6 @@ impl OllamaClient {
         result: serde_json::Value,
     ) -> Result<()> {
         self.transport.send_tool_result(invocation_id, result).await
-    }
-}
-
-// ChatStream type
-pub struct ChatStream {
-    inner: Pin<Box<dyn Stream<Item = Result<ChatStreamEvent>> + Send>>,
-}
-
-impl Stream for ChatStream {
-    type Item = Result<ChatStreamEvent>;
-
-    fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        self.inner.as_mut().poll_next(cx)
     }
 }
 

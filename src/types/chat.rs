@@ -1,4 +1,8 @@
+use std::pin::Pin;
+
+use crate::errors::Result;
 use crate::types::{Message, Thinking};
+use futures::Stream;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Default, Debug, Clone)]
@@ -93,5 +97,21 @@ impl From<StreamingChatRequest> for ChatRequest {
             think: value.think,
             tools: value.tools,
         }
+    }
+}
+
+// ChatStream type
+pub struct ChatStream {
+    pub inner: Pin<Box<dyn Stream<Item = Result<ChatStreamEvent>> + Send>>,
+}
+
+impl Stream for ChatStream {
+    type Item = Result<ChatStreamEvent>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.inner.as_mut().poll_next(cx)
     }
 }
