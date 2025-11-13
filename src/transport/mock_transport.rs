@@ -12,11 +12,11 @@ use futures::StreamExt;
 
 use crate::errors::{Error, Result};
 use crate::transport::Transport;
-use crate::types::chat::{ChatRequest, ChatResponse, StreamEvent};
+use crate::types::chat::{ChatRequest, ChatResponse, ChatStreamEvent};
 
 #[derive(Clone, Default)]
 pub struct MockTransport {
-    chat_responses: Arc<Mutex<Vec<StreamEvent>>>,
+    chat_responses: Arc<Mutex<Vec<ChatStreamEvent>>>,
     non_streaming_response: Arc<Mutex<Option<ChatResponse>>>, // Added for non-streaming
     tool_results_sent: Arc<Mutex<Vec<(String, serde_json::Value)>>>,
 }
@@ -26,7 +26,7 @@ impl MockTransport {
         Self::default()
     }
 
-    pub fn with_chat_responses(self, responses: Vec<StreamEvent>) -> Self {
+    pub fn with_chat_responses(self, responses: Vec<ChatStreamEvent>) -> Self {
         *self.chat_responses.lock().unwrap() = responses;
         self
     }

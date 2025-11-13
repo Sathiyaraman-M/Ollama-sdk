@@ -8,7 +8,9 @@ use ollama_sdk::client::OllamaClient;
 use ollama_sdk::errors::{Error, Result};
 use ollama_sdk::tools::{Tool, ToolContext};
 use ollama_sdk::transport::mock_transport::MockTransport;
-use ollama_sdk::types::chat::{ChatResponse, SimpleChatRequest, StreamEvent, StreamingChatRequest};
+use ollama_sdk::types::chat::{
+    ChatResponse, ChatStreamEvent, SimpleChatRequest, StreamingChatRequest,
+};
 use ollama_sdk::types::{Message, Role};
 
 // --- Mock Tool Implementation ---
@@ -83,19 +85,19 @@ async fn test_chat_simple() -> Result<()> {
 #[tokio::test]
 async fn test_chat_stream_partial_events() -> Result<()> {
     let mock_transport = Arc::new(MockTransport::new().with_chat_responses(vec![
-        StreamEvent::Partial {
+        ChatStreamEvent::Partial {
             message: Message {
                 role: Role::Assistant,
                 content: "Hello".to_string(),
             },
         },
-        StreamEvent::Partial {
+        ChatStreamEvent::Partial {
             message: Message {
                 role: Role::Assistant,
                 content: " world".to_string(),
             },
         },
-        StreamEvent::Done {
+        ChatStreamEvent::Done {
             final_message: None,
         },
     ]));
@@ -120,7 +122,7 @@ async fn test_chat_stream_partial_events() -> Result<()> {
 
     while let Some(event_res) = stream.next().await {
         let event = event_res?;
-        if let StreamEvent::Partial { message } = event {
+        if let ChatStreamEvent::Partial { message } = event {
             received_content.push_str(&message.content);
         }
     }
@@ -132,18 +134,18 @@ async fn test_chat_stream_partial_events() -> Result<()> {
 #[tokio::test]
 async fn test_chat_stream_tool_dispatch_success() -> Result<()> {
     let mock_transport = Arc::new(MockTransport::new().with_chat_responses(vec![
-        StreamEvent::ToolCall {
+        ChatStreamEvent::ToolCall {
             invocation_id: "inv-1".to_string(),
             name: "search".to_string(),
             input: json!({"query": "rust"}),
         },
-        StreamEvent::Partial {
+        ChatStreamEvent::Partial {
             message: Message {
                 role: Role::Assistant,
                 content: "Searching...".to_string(),
             },
         },
-        StreamEvent::Done {
+        ChatStreamEvent::Done {
             final_message: None,
         },
     ]));
@@ -172,10 +174,10 @@ async fn test_chat_stream_tool_dispatch_success() -> Result<()> {
     while let Some(event_res) = stream.next().await {
         let event = event_res?;
         match event {
-            StreamEvent::ToolCall { .. } => {
+            ChatStreamEvent::ToolCall { .. } => {
                 tool_call_received = true;
             }
-            StreamEvent::Partial { message } => {
+            ChatStreamEvent::Partial { message } => {
                 received_content.push_str(&message.content);
             }
             _ => {}
@@ -203,18 +205,18 @@ async fn test_chat_stream_tool_dispatch_success() -> Result<()> {
 #[tokio::test]
 async fn test_chat_stream_tool_dispatch_failure() -> Result<()> {
     let mock_transport = Arc::new(MockTransport::new().with_chat_responses(vec![
-        StreamEvent::ToolCall {
+        ChatStreamEvent::ToolCall {
             invocation_id: "inv-2".to_string(),
             name: "failing_tool".to_string(),
             input: json!({}),
         },
-        StreamEvent::Partial {
+        ChatStreamEvent::Partial {
             message: Message {
                 role: Role::Assistant,
                 content: "Tool failed...".to_string(),
             },
         },
-        StreamEvent::Done {
+        ChatStreamEvent::Done {
             final_message: None,
         },
     ]));
@@ -241,7 +243,7 @@ async fn test_chat_stream_tool_dispatch_failure() -> Result<()> {
 
     while let Some(event_res) = stream.next().await {
         let event = event_res?;
-        if let StreamEvent::ToolCall { .. } = event {
+        if let ChatStreamEvent::ToolCall { .. } = event {
             tool_call_received = true;
         }
     }
@@ -284,12 +286,12 @@ async fn test_chat_stream_tool_timeout() -> Result<()> {
     }
 
     let mock_transport = Arc::new(MockTransport::new().with_chat_responses(vec![
-        StreamEvent::ToolCall {
+        ChatStreamEvent::ToolCall {
             invocation_id: "inv-3".to_string(),
             name: "slow_tool".to_string(),
             input: json!({}),
         },
-        StreamEvent::Done {
+        ChatStreamEvent::Done {
             final_message: None,
         },
     ]));
@@ -316,7 +318,7 @@ async fn test_chat_stream_tool_timeout() -> Result<()> {
 
     while let Some(event_res) = stream.next().await {
         let event = event_res?;
-        if let StreamEvent::ToolCall { .. } = event {
+        if let ChatStreamEvent::ToolCall { .. } = event {
             tool_call_received = true;
         }
     }

@@ -4,7 +4,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use crate::errors::Result;
-use crate::types::chat::StreamEvent;
+use crate::types::chat::ChatStreamEvent;
 use crate::types::{Message, Role};
 
 pub struct StreamParser<S>
@@ -26,7 +26,7 @@ where
         }
     }
 
-    fn parse_lines(&mut self) -> Option<Result<StreamEvent>> {
+    fn parse_lines(&mut self) -> Option<Result<ChatStreamEvent>> {
         loop {
             let newline_pos = self.buffer.iter().position(|&b| b == b'\n')?;
             let line_bytes = self.buffer.drain(..=newline_pos).collect::<Vec<u8>>(); // inclusive
@@ -37,14 +37,14 @@ where
                 continue; // Skip empty lines
             }
 
-            match serde_json::from_str::<StreamEvent>(line_str) {
+            match serde_json::from_str::<ChatStreamEvent>(line_str) {
                 Ok(event) => return Some(Ok(event)),
                 Err(_) => {
                     // If it's not a known StreamEvent, try to parse as a partial message
                     // This is a fallback for non-JSON fragments or unexpected formats.
                     // The technical design says: "Accept non-JSON fragments: attempt JSON parse, fallback to treating as Partial with content text."
                     // This means if it's not a valid StreamEvent JSON, we assume it's just raw text.
-                    return Some(Ok(StreamEvent::Partial {
+                    return Some(Ok(ChatStreamEvent::Partial {
                         message: Message {
                             role: Role::Assistant,
                             content: line_str.to_string(),
@@ -60,7 +60,7 @@ impl<S> Stream for StreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
-    type Item = Result<StreamEvent>;
+    type Item = Result<ChatStreamEvent>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
@@ -95,7 +95,7 @@ where
                         let content = String::from_utf8_lossy(&self.buffer).to_string();
                         self.buffer.clear();
                         if !content.trim().is_empty() {
-                            return Poll::Ready(Some(Ok(StreamEvent::Partial {
+                            return Poll::Ready(Some(Ok(ChatStreamEvent::Partial {
                                 message: Message {
                                     role: Role::Assistant,
                                     content: content.trim().to_string(),

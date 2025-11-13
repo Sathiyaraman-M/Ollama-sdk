@@ -18,7 +18,7 @@ use crate::tools::registry::ToolRegistry;
 use crate::tools::{DynTool, ToolContext};
 use crate::transport::reqwest_transport::ReqwestTransport;
 use crate::transport::Transport;
-use crate::types::chat::{ChatResponse, SimpleChatRequest, StreamEvent, StreamingChatRequest};
+use crate::types::chat::{ChatResponse, ChatStreamEvent, SimpleChatRequest, StreamingChatRequest};
 
 #[derive(Clone)]
 pub struct OllamaClient {
@@ -64,7 +64,7 @@ impl OllamaClient {
             (parser, client_arc),
             move |(mut parser, client_arc)| async move {
                 match parser.next().await {
-                    Some(Ok(StreamEvent::ToolCall {
+                    Some(Ok(ChatStreamEvent::ToolCall {
                         invocation_id,
                         name,
                         input,
@@ -124,7 +124,7 @@ impl OllamaClient {
                         });
 
                         Some((
-                            Ok(StreamEvent::ToolCall {
+                            Ok(ChatStreamEvent::ToolCall {
                                 invocation_id,
                                 name,
                                 input,
@@ -176,11 +176,11 @@ impl OllamaClient {
 
 // ChatStream type
 pub struct ChatStream {
-    inner: Pin<Box<dyn Stream<Item = Result<StreamEvent>> + Send>>,
+    inner: Pin<Box<dyn Stream<Item = Result<ChatStreamEvent>> + Send>>,
 }
 
 impl Stream for ChatStream {
-    type Item = Result<StreamEvent>;
+    type Item = Result<ChatStreamEvent>;
 
     fn poll_next(
         mut self: std::pin::Pin<&mut Self>,

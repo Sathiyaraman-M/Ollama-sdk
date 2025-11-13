@@ -45,7 +45,7 @@ pub struct FunctionalTool {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub enum StreamEvent {
+pub enum ChatStreamEvent {
     Partial {
         message: Message,
     },

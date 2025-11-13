@@ -4,7 +4,7 @@ use serde_json::json;
 
 use ollama_sdk::errors::Result;
 use ollama_sdk::stream::parser::StreamParser;
-use ollama_sdk::types::chat::StreamEvent;
+use ollama_sdk::types::chat::ChatStreamEvent;
 use ollama_sdk::types::Role;
 
 // Helper function to create a stream from a vector of byte chunks
@@ -22,7 +22,7 @@ async fn test_parse_single_partial_event() {
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
-        StreamEvent::Partial { message } => {
+        ChatStreamEvent::Partial { message } => {
             assert_eq!(message.role, Role::Assistant);
             assert_eq!(message.content, "hello");
         }
@@ -45,13 +45,13 @@ async fn test_parse_multiple_partial_events() {
 
     let event1 = parser.next().await.unwrap().unwrap();
     match event1 {
-        StreamEvent::Partial { message } => assert_eq!(message.content, "hello"),
+        ChatStreamEvent::Partial { message } => assert_eq!(message.content, "hello"),
         _ => panic!("Expected Partial event"),
     }
 
     let event2 = parser.next().await.unwrap().unwrap();
     match event2 {
-        StreamEvent::Partial { message } => assert_eq!(message.content, " world"),
+        ChatStreamEvent::Partial { message } => assert_eq!(message.content, " world"),
         _ => panic!("Expected Partial event"),
     }
     assert!(parser.next().await.is_none());
@@ -67,7 +67,7 @@ async fn test_parse_tool_call_event() {
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
-        StreamEvent::ToolCall {
+        ChatStreamEvent::ToolCall {
             invocation_id,
             name,
             input,
@@ -90,7 +90,7 @@ async fn test_parse_done_event() {
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
-        StreamEvent::Done { final_message } => {
+        ChatStreamEvent::Done { final_message } => {
             assert_eq!(final_message.unwrap().content, "finished");
         }
         _ => panic!("Expected Done event, got {:?}", event),
@@ -114,13 +114,13 @@ async fn test_handle_incomplete_lines_and_buffering() {
 
     let event1 = parser.next().await.unwrap().unwrap();
     match event1 {
-        StreamEvent::Partial { message } => assert_eq!(message.content, "hello"),
+        ChatStreamEvent::Partial { message } => assert_eq!(message.content, "hello"),
         _ => panic!("Expected Partial event"),
     }
 
     let event2 = parser.next().await.unwrap().unwrap();
     match event2 {
-        StreamEvent::Partial { message } => assert_eq!(message.content, " world"),
+        ChatStreamEvent::Partial { message } => assert_eq!(message.content, " world"),
         _ => panic!("Expected Partial event"),
     }
     assert!(parser.next().await.is_none());
@@ -140,7 +140,7 @@ async fn test_handle_non_json_lines_as_partial() {
 
     let event1 = parser.next().await.unwrap().unwrap();
     match event1 {
-        StreamEvent::Partial { message } => {
+        ChatStreamEvent::Partial { message } => {
             assert_eq!(message.role, Role::Assistant);
             assert_eq!(message.content, "This is a plain text message.");
         }
@@ -149,7 +149,7 @@ async fn test_handle_non_json_lines_as_partial() {
 
     let event2 = parser.next().await.unwrap().unwrap();
     match event2 {
-        StreamEvent::Partial { message } => {
+        ChatStreamEvent::Partial { message } => {
             assert_eq!(message.role, Role::Assistant);
             assert_eq!(message.content, "JSON part");
         }
@@ -177,7 +177,7 @@ async fn test_stream_with_empty_lines() {
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
-        StreamEvent::Partial { message } => assert_eq!(message.content, "test"),
+        ChatStreamEvent::Partial { message } => assert_eq!(message.content, "test"),
         _ => panic!("Expected Partial event"),
     }
     assert!(parser.next().await.is_none());
@@ -194,7 +194,7 @@ async fn test_stream_ends_with_partial_line() {
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
-        StreamEvent::Partial { message } => {
+        ChatStreamEvent::Partial { message } => {
             assert_eq!(message.content, json_line);
         }
         _ => panic!("Expected Partial event"),
