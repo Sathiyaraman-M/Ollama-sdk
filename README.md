@@ -22,14 +22,14 @@ Add `ollama-sdk` to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ollama-sdk = "0.1.1"
+ollama-sdk = "0.2.0"
 ```
 
 To enable optional features like `tracing` or `metrics`:
 
 ```toml
 [dependencies]
-ollama-sdk = { version = "0.1.1", features = ["tracing", "metrics"] }
+ollama-sdk = { version = "0.2.0", features = ["tracing", "metrics"] }
 ```
 
 ## Usage
