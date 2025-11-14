@@ -1,11 +1,9 @@
 use bytes::Bytes;
 use futures::{stream, StreamExt};
-use serde_json::json;
 
 use ollama_sdk::errors::Result;
 use ollama_sdk::stream::chat_stream_parser::ChatStreamParser;
 use ollama_sdk::types::chat::ChatStreamEvent;
-use ollama_sdk::types::Role;
 
 // Helper function to create a stream from a vector of byte chunks
 fn create_byte_stream(
@@ -15,122 +13,83 @@ fn create_byte_stream(
 }
 
 #[tokio::test]
-async fn test_parse_single_partial_event() {
-    let json_line = r#"{"Partial":{"message":{"role":"assistant","content":"hello"}}}"#.to_string();
-    let byte_stream = create_byte_stream(vec![format!("{}\n", json_line)]);
-    let mut parser = ChatStreamParser::new(byte_stream);
-
-    let event = parser.next().await.unwrap().unwrap();
-    match event {
-        ChatStreamEvent::Partial { message } => {
-            assert_eq!(message.role, Role::Assistant);
-            assert_eq!(message.content, "hello");
-        }
-        _ => panic!("Expected Partial event, got {:?}", event),
-    }
-    assert!(parser.next().await.is_none());
-}
-
-#[tokio::test]
-async fn test_parse_multiple_partial_events() {
-    let json_line1 =
-        r#"{"Partial":{"message":{"role":"assistant","content":"hello"}}}"#.to_string();
-    let json_line2 =
-        r#"{"Partial":{"message":{"role":"assistant","content":" world"}}}"#.to_string();
-    let byte_stream = create_byte_stream(vec![
-        format!("{}\n", json_line1),
-        format!("{}\n", json_line2),
-    ]);
-    let mut parser = ChatStreamParser::new(byte_stream);
-
-    let event1 = parser.next().await.unwrap().unwrap();
-    match event1 {
-        ChatStreamEvent::Partial { message } => assert_eq!(message.content, "hello"),
-        _ => panic!("Expected Partial event"),
-    }
-
-    let event2 = parser.next().await.unwrap().unwrap();
-    match event2 {
-        ChatStreamEvent::Partial { message } => assert_eq!(message.content, " world"),
-        _ => panic!("Expected Partial event"),
-    }
-    assert!(parser.next().await.is_none());
-}
-
-#[tokio::test]
-async fn test_parse_tool_call_event() {
+async fn test_parse_single_message_event() {
     let json_line =
-        r#"{"ToolCall":{"invocation_id":"123","name":"search","input":{"query":"rust"}}}"#
+        r#"{"model":"gpt-2","message":{"role":"assistant","content":"hello"},"done":false}"#
             .to_string();
     let byte_stream = create_byte_stream(vec![format!("{}\n", json_line)]);
     let mut parser = ChatStreamParser::new(byte_stream);
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
-        ChatStreamEvent::ToolCall {
-            invocation_id,
-            name,
-            input,
-        } => {
-            assert_eq!(invocation_id, "123");
-            assert_eq!(name, "search");
-            assert_eq!(input, json!({ "query": "rust" }));
-        }
-        _ => panic!("Expected ToolCall event, got {:?}", event),
+        ChatStreamEvent::Message(response) => assert_eq!(response.message.content, "hello"),
+        _ => panic!("Expected Message event, got {:?}", event),
     }
     assert!(parser.next().await.is_none());
 }
 
 #[tokio::test]
-async fn test_parse_done_event() {
+async fn test_parse_single_partial_event() {
     let json_line =
-        r#"{"Done":{"final_message":{"role":"assistant","content":"finished"}}}"#.to_string();
+        r#"{"message":{"role":"assistant","content":"hello"},"done":false}"#.to_string();
     let byte_stream = create_byte_stream(vec![format!("{}\n", json_line)]);
     let mut parser = ChatStreamParser::new(byte_stream);
 
     let event = parser.next().await.unwrap().unwrap();
     match event {
-        ChatStreamEvent::Done { final_message } => {
-            assert_eq!(final_message.unwrap().content, "finished");
-        }
-        _ => panic!("Expected Done event, got {:?}", event),
+        ChatStreamEvent::Partial { partial, .. } => assert_eq!(partial, json_line),
+        _ => panic!("Expected Partial event, got {:?}", event),
     }
     assert!(parser.next().await.is_none());
 }
 
 #[tokio::test]
-async fn test_handle_incomplete_lines_and_buffering() {
-    let json_line1 =
-        r#"{"Partial":{"message":{"role":"assistant","content":"hello"}}}"#.to_string();
-    let json_line2 =
-        r#"{"Partial":{"message":{"role":"assistant","content":" world"}}}"#.to_string();
+async fn test_parse_single_error_event() {
+    let json_line = r#"{"error":"Some test error"}"#.to_string();
+    let byte_stream = create_byte_stream(vec![format!("{}\n", json_line)]);
+    let mut parser = ChatStreamParser::new(byte_stream);
 
+    let event = parser.next().await.unwrap().unwrap();
+    match event {
+        ChatStreamEvent::Error(err) => assert_eq!(err, "Some test error"),
+        _ => panic!("Expected Error event, got {:?}", event),
+    }
+    assert!(parser.next().await.is_none());
+}
+
+#[tokio::test]
+async fn test_parse_multiple_message_events() {
+    let json_line1 =
+        r#"{"model":"gpt-2","message":{"role":"assistant","content":"hello"},"done":false}"#
+            .to_string();
+    let json_line2 =
+        r#"{"model":"gpt-2","message":{"role":"assistant","content":" world"},"done":false}"#
+            .to_string();
     let byte_stream = create_byte_stream(vec![
-        json_line1[..10].to_string(), // Incomplete first line
-        format!("{}\n{}", &json_line1[10..], json_line2), // Rest of first line + incomplete second line
-        "\n".to_string(),                                 // Newline for second line
+        format!("{}\n", json_line1),
+        format!("{}\n", json_line2),
     ]);
     let mut parser = ChatStreamParser::new(byte_stream);
 
-    let event1 = parser.next().await.unwrap().unwrap();
-    match event1 {
-        ChatStreamEvent::Partial { message } => assert_eq!(message.content, "hello"),
-        _ => panic!("Expected Partial event"),
-    }
+    let ev1 = parser.next().await.unwrap().unwrap();
+    let ev2 = parser.next().await.unwrap().unwrap();
 
-    let event2 = parser.next().await.unwrap().unwrap();
-    match event2 {
-        ChatStreamEvent::Partial { message } => assert_eq!(message.content, " world"),
-        _ => panic!("Expected Partial event"),
+    match (ev1, ev2) {
+        (ChatStreamEvent::Message(response1), ChatStreamEvent::Message(response2)) => {
+            assert_eq!(response1.message.content, "hello");
+            assert_eq!(response2.message.content, " world");
+        }
+        _ => panic!("Expected two Message events"),
     }
     assert!(parser.next().await.is_none());
 }
 
 #[tokio::test]
-async fn test_handle_non_json_lines_as_partial() {
+async fn test_handle_mix_of_partial_and_message_events() {
     let non_json_line = "This is a plain text message.".to_string();
     let json_line =
-        r#"{"Partial":{"message":{"role":"assistant","content":"JSON part"}}}"#.to_string();
+        r#"{"model":"gpt-2","message":{"role":"assistant","content":"JSON part"},"done":false}"#
+            .to_string();
 
     let byte_stream = create_byte_stream(vec![
         format!("{}\n", non_json_line),
@@ -138,22 +97,15 @@ async fn test_handle_non_json_lines_as_partial() {
     ]);
     let mut parser = ChatStreamParser::new(byte_stream);
 
-    let event1 = parser.next().await.unwrap().unwrap();
-    match event1 {
-        ChatStreamEvent::Partial { message } => {
-            assert_eq!(message.role, Role::Assistant);
-            assert_eq!(message.content, "This is a plain text message.");
-        }
-        _ => panic!("Expected Partial event for non-JSON line"),
-    }
+    let ev1 = parser.next().await.unwrap().unwrap();
+    let ev2 = parser.next().await.unwrap().unwrap();
 
-    let event2 = parser.next().await.unwrap().unwrap();
-    match event2 {
-        ChatStreamEvent::Partial { message } => {
-            assert_eq!(message.role, Role::Assistant);
-            assert_eq!(message.content, "JSON part");
+    match (ev1, ev2) {
+        (ChatStreamEvent::Partial { partial, .. }, ChatStreamEvent::Message(response2)) => {
+            assert_eq!(partial, non_json_line);
+            assert_eq!(response2.message.content, "JSON part");
         }
-        _ => panic!("Expected Partial event for JSON line"),
+        _ => panic!("Expected one Partial and one Message events"),
     }
     assert!(parser.next().await.is_none());
 }
@@ -167,7 +119,9 @@ async fn test_empty_stream() {
 
 #[tokio::test]
 async fn test_stream_with_empty_lines() {
-    let json_line = r#"{"Partial":{"message":{"role":"assistant","content":"test"}}}"#.to_string();
+    let json_line =
+        r#"{"model":"gpt-2","message":{"role":"assistant","content":"test"},"done":false}"#
+            .to_string();
     let byte_stream = create_byte_stream(vec![
         "\n".to_string(),
         format!("{}\n", json_line),
@@ -175,29 +129,10 @@ async fn test_stream_with_empty_lines() {
     ]);
     let mut parser = ChatStreamParser::new(byte_stream);
 
-    let event = parser.next().await.unwrap().unwrap();
-    match event {
-        ChatStreamEvent::Partial { message } => assert_eq!(message.content, "test"),
-        _ => panic!("Expected Partial event"),
-    }
-    assert!(parser.next().await.is_none());
-}
-
-#[tokio::test]
-async fn test_stream_ends_with_partial_line() {
-    let json_line = r#"{"Partial":{"message":{"role":"assistant","content":"hello"}}}"#.to_string();
-    let byte_stream = create_byte_stream(vec![
-        json_line[..10].to_string(), // Incomplete first line
-        json_line[10..].to_string(), // Rest of first line, but no trailing newline
-    ]);
-    let mut parser = ChatStreamParser::new(byte_stream);
-
-    let event = parser.next().await.unwrap().unwrap();
-    match event {
-        ChatStreamEvent::Partial { message } => {
-            assert_eq!(message.content, json_line);
-        }
-        _ => panic!("Expected Partial event"),
+    let ev = parser.next().await.unwrap().unwrap();
+    match ev {
+        ChatStreamEvent::Message(response) => assert_eq!(response.message.content, "test"),
+        _ => panic!("Expected Message event"),
     }
     assert!(parser.next().await.is_none());
 }

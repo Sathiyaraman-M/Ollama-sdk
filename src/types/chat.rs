@@ -1,36 +1,30 @@
 use std::pin::Pin;
 
 use crate::errors::Result;
-use crate::types::{Message, Thinking};
+use crate::types::Thinking;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Default, Debug, Clone)]
-pub struct SimpleChatRequest {
-    pub model: String,
-    pub messages: Vec<Message>,
-    pub think: Thinking,
-}
-
-#[derive(Serialize, Default, Debug, Clone)]
-pub struct StreamingChatRequest {
-    pub model: String,
-    pub messages: Vec<Message>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tools: Option<Vec<ToolSpec>>,
-    pub think: Thinking,
-}
+use super::Role;
 
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct ChatRequest {
     pub model: String,
-    pub messages: Vec<Message>,
+    pub messages: Vec<ChatRequestMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<ToolSpec>>,
     #[serde(default)]
     pub think: Thinking,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct ChatRequestMessage {
+    pub role: Role,
+    pub content: String,
+    #[serde(default)]
+    pub tool_calls: Vec<FunctionalTool>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -40,7 +34,7 @@ pub enum ToolSpec {
     Function(FunctionalTool),
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct FunctionalTool {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -48,32 +42,49 @@ pub struct FunctionalTool {
     pub parameters: serde_json::Value,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-pub enum ChatStreamEvent {
-    Partial {
-        message: Message,
-    },
-    ToolCall {
-        invocation_id: String,
-        name: String,
-        input: serde_json::Value,
-    },
-    ToolResultAck {
-        invocation_id: String,
-        name: String,
-        result: serde_json::Value,
-    },
-    Metadata {
-        info: serde_json::Value,
-    },
-    Done {
-        final_message: Option<Message>,
-    },
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct ChatResponse {
+    pub model: String,
+    #[serde(default)]
+    pub created_at: String,
+    pub message: ChatResponseMessage,
+    pub done: bool,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct ChatResponse {
-    pub message: Message,
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct ChatResponseMessage {
+    pub role: Role,
+    pub content: String,
+    #[serde(default)]
+    pub thinking: String,
+    #[serde(default)]
+    pub tool_calls: Vec<FunctionalTool>,
+}
+
+impl From<ChatResponseMessage> for ChatRequestMessage {
+    fn from(value: ChatResponseMessage) -> Self {
+        ChatRequestMessage {
+            role: value.role,
+            content: value.content,
+            tool_calls: value.tool_calls,
+        }
+    }
+}
+
+#[derive(Serialize, Default, Debug, Clone)]
+pub struct SimpleChatRequest {
+    pub model: String,
+    pub messages: Vec<ChatRequestMessage>,
+    pub think: Thinking,
+}
+
+#[derive(Serialize, Default, Debug, Clone)]
+pub struct StreamingChatRequest {
+    pub model: String,
+    pub messages: Vec<ChatRequestMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ToolSpec>>,
+    pub think: Thinking,
 }
 
 impl From<SimpleChatRequest> for ChatRequest {
@@ -98,6 +109,16 @@ impl From<StreamingChatRequest> for ChatRequest {
             tools: value.tools,
         }
     }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub enum ChatStreamEvent {
+    Message(ChatResponse),
+    Error(String),
+    Partial {
+        partial: String,
+        error: Option<String>,
+    },
 }
 
 // ChatStream type

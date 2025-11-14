@@ -3,10 +3,11 @@ pub mod generate;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     System,
+    #[default]
     User,
     Assistant,
     Tool,

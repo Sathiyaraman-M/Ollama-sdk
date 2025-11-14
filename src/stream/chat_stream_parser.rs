@@ -4,8 +4,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use crate::errors::Result;
-use crate::types::chat::ChatStreamEvent;
-use crate::types::{Message, Role};
+use crate::types::chat::{ChatResponse, ChatStreamEvent};
+use crate::types::OllamaError;
 
 pub struct ChatStreamParser<S>
 where
@@ -37,20 +37,19 @@ where
                 continue; // Skip empty lines
             }
 
-            match serde_json::from_str::<ChatStreamEvent>(line_str) {
-                Ok(event) => return Some(Ok(event)),
-                Err(_) => {
-                    // If it's not a known StreamEvent, try to parse as a partial message
-                    // This is a fallback for non-JSON fragments or unexpected formats.
-                    // The technical design says: "Accept non-JSON fragments: attempt JSON parse, fallback to treating as Partial with content text."
-                    // This means if it's not a valid StreamEvent JSON, we assume it's just raw text.
-                    return Some(Ok(ChatStreamEvent::Partial {
-                        message: Message {
-                            role: Role::Assistant,
-                            content: line_str.to_string(),
-                        },
-                    }));
-                }
+            // First try to parse as a full ChatStreamEvent
+            match serde_json::from_str::<ChatResponse>(line_str) {
+                Ok(event) => return Some(Ok(ChatStreamEvent::Message(event))),
+                Err(e) => match serde_json::from_str::<OllamaError>(line_str) {
+                    Ok(error) => return Some(Ok(ChatStreamEvent::Error(error.error))),
+                    Err(_) => {
+                        // Fallback: treat the whole line as partial assistant content
+                        return Some(Ok(ChatStreamEvent::Partial {
+                            partial: line_str.to_string(),
+                            error: e.to_string().into(),
+                        }));
+                    }
+                },
             }
         }
     }
@@ -96,10 +95,8 @@ where
                         self.buffer.clear();
                         if !content.trim().is_empty() {
                             return Poll::Ready(Some(Ok(ChatStreamEvent::Partial {
-                                message: Message {
-                                    role: Role::Assistant,
-                                    content: content.trim().to_string(),
-                                },
+                                partial: content,
+                                error: None,
                             })));
                         }
                         return Poll::Ready(None);

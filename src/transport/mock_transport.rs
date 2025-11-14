@@ -18,6 +18,7 @@ use crate::types::generate::GenerateRequest;
 #[derive(Clone, Default)]
 pub struct MockTransport {
     chat_responses: Arc<Mutex<Vec<ChatStreamEvent>>>,
+    raw_chat_responses: Arc<Mutex<Vec<String>>>, // Added for raw JSON strings
     non_streaming_response: Arc<Mutex<Option<ChatResponse>>>, // Added for non-streaming
     tool_results_sent: Arc<Mutex<Vec<(String, serde_json::Value)>>>,
 }
@@ -29,6 +30,11 @@ impl MockTransport {
 
     pub fn with_chat_responses(self, responses: Vec<ChatStreamEvent>) -> Self {
         *self.chat_responses.lock().unwrap() = responses;
+        self
+    }
+
+    pub fn with_streaming_raw_responses(self, responses: Vec<String>) -> Self {
+        *self.raw_chat_responses.lock().unwrap() = responses;
         self
     }
 
@@ -91,21 +97,34 @@ impl Transport for MockTransport {
         request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send>>> {
         if request.stream.unwrap_or(false) {
-            let responses = self
-                .chat_responses
+            let raw_responses = self
+                .raw_chat_responses
                 .lock()
                 .unwrap()
                 .drain(..)
                 .collect::<Vec<_>>();
-            let byte_stream = stream::iter(responses)
-                .map(|event| {
-                    let json_string = serde_json::to_string(&event).map_err(|e| {
-                        Error::Protocol(format!("Failed to serialize mock event: {}", e))
-                    })?;
-                    Ok(Bytes::from(format!("{}\n", json_string)))
-                })
-                .boxed();
-            Ok(byte_stream)
+            if !raw_responses.is_empty() {
+                let byte_stream = stream::iter(raw_responses)
+                    .map(|s| Ok(Bytes::from(format!("{}\n", s))))
+                    .boxed();
+                Ok(byte_stream)
+            } else {
+                let responses = self
+                    .chat_responses
+                    .lock()
+                    .unwrap()
+                    .drain(..)
+                    .collect::<Vec<_>>();
+                let byte_stream = stream::iter(responses)
+                    .map(|event| {
+                        let json_string = serde_json::to_string(&event).map_err(|e| {
+                            Error::Protocol(format!("Failed to serialize mock event: {}", e))
+                        })?;
+                        Ok(Bytes::from(format!("{}\n", json_string)))
+                    })
+                    .boxed();
+                Ok(byte_stream)
+            }
         } else {
             let response = self
                 .non_streaming_response
