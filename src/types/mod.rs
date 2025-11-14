@@ -14,12 +14,6 @@ pub enum Role {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Message {
-    pub role: Role,
-    pub content: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Thinking {
     Boolean(bool),
