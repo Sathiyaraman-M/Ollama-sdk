@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+#[cfg(feature = "tracing")]
+use tracing::instrument;
+
 use reqwest::Url;
 
 use crate::tools::registry::ToolRegistry;
