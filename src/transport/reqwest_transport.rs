@@ -92,27 +92,4 @@ impl Transport for ReqwestTransport {
 
         Ok(stream)
     }
-
-    #[cfg_attr(feature = "tracing", instrument(skip(self, result)))]
-    async fn send_tool_result(&self, invocation_id: &str, result: serde_json::Value) -> Result<()> {
-        let url = self
-            .base_url
-            .join(&format!("/v1/calls/{}/result", invocation_id))
-            .map_err(|e| Error::Client(e.to_string()))?;
-
-        let mut request_builder = self
-            .client
-            .post(url)
-            .json(&serde_json::json!({ "result": result }));
-
-        if let Some(api_key) = &self.api_key {
-            request_builder = request_builder.bearer_auth(api_key);
-        }
-
-        let response = request_builder.send().await.map_err(Error::Transport)?;
-
-        response.error_for_status().map_err(Error::Transport)?;
-
-        Ok(())
-    }
 }

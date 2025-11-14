@@ -125,13 +125,4 @@ impl Transport for MockTransport {
             Ok(byte_stream)
         }
     }
-
-    #[cfg_attr(feature = "tracing", instrument(skip(self, result)))]
-    async fn send_tool_result(&self, invocation_id: &str, result: serde_json::Value) -> Result<()> {
-        self.tool_results_sent
-            .lock()
-            .unwrap()
-            .push((invocation_id.to_string(), result));
-        Ok(())
-    }
 }
