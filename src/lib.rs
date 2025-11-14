@@ -5,6 +5,7 @@ use thiserror::Error;
 use self::tools::registry::ToolRegistry;
 use self::transport::Transport;
 
+pub mod builder;
 pub mod client;
 pub mod stream;
 pub mod tools;

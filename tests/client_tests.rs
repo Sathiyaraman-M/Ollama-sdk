@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures::StreamExt;
 
@@ -27,7 +26,6 @@ async fn test_chat_simple() -> Result<()> {
 
     let client = OllamaClient::builder()
         .base_url("http://mock.ollama.ai")
-        .max_tool_runtime(Duration::from_secs(1))
         .transport(mock_transport) // Pass the mock transport to the builder
         .build()?;
 
@@ -57,7 +55,6 @@ async fn test_chat_stream() -> Result<()> {
 
     let client = OllamaClient::builder()
         .base_url("http://mock.ollama.ai")
-        .max_tool_runtime(Duration::from_secs(1))
         .transport(mock_transport)
         .build()?;
 
