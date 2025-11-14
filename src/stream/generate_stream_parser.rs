@@ -4,9 +4,10 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use crate::errors::Result;
-use crate::types::{Message, Role, StreamEvent};
+use crate::types::generate::{GenerateResponse, GenerateStreamEvent};
+use crate::types::OllamaError;
 
-pub struct StreamParser<S>
+pub struct GenerateStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
@@ -14,7 +15,7 @@ where
     buffer: Vec<u8>,
 }
 
-impl<S> StreamParser<S>
+impl<S> GenerateStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
@@ -25,7 +26,7 @@ where
         }
     }
 
-    fn parse_lines(&mut self) -> Option<Result<StreamEvent>> {
+    fn parse_lines(&mut self) -> Option<Result<GenerateStreamEvent>> {
         loop {
             let newline_pos = self.buffer.iter().position(|&b| b == b'\n')?;
             let line_bytes = self.buffer.drain(..=newline_pos).collect::<Vec<u8>>(); // inclusive
@@ -36,32 +37,33 @@ where
                 continue; // Skip empty lines
             }
 
-            match serde_json::from_str::<StreamEvent>(line_str) {
-                Ok(event) => return Some(Ok(event)),
-                Err(_) => {
-                    // If it's not a known StreamEvent, try to parse as a partial message
-                    // This is a fallback for non-JSON fragments or unexpected formats.
-                    // The technical design says: "Accept non-JSON fragments: attempt JSON parse, fallback to treating as Partial with content text."
-                    // This means if it's not a valid StreamEvent JSON, we assume it's just raw text.
-                    return Some(Ok(StreamEvent::Partial {
-                        message: Message {
-                            role: Role::Assistant,
-                            content: line_str.to_string(),
-                            name: None,
-                            metadata: None,
-                        },
-                    }));
+            match serde_json::from_str::<GenerateResponse>(line_str) {
+                Ok(event) => return Some(Ok(GenerateStreamEvent::MessageChunk(event))),
+                Err(e) => {
+                    match serde_json::from_str::<OllamaError>(line_str) {
+                        Ok(error) => return Some(Ok(GenerateStreamEvent::Error(error.error))),
+                        Err(_) => {
+                            // If it's not a known StreamEvent, try to parse as a partial message
+                            // This is a fallback for non-JSON fragments or unexpected formats.
+                            // The technical design says: "Accept non-JSON fragments: attempt JSON parse, fallback to treating as Partial with content text."
+                            // This means if it's not a valid StreamEvent JSON, we assume it's just raw text.
+                            return Some(Ok(GenerateStreamEvent::Partial {
+                                partial: line_str.to_string(),
+                                error: e.to_string().into(),
+                            }));
+                        }
+                    };
                 }
             }
         }
     }
 }
 
-impl<S> Stream for StreamParser<S>
+impl<S> Stream for GenerateStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
-    type Item = Result<StreamEvent>;
+    type Item = Result<GenerateStreamEvent>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
@@ -79,7 +81,7 @@ where
                         continue; // loop: try parse again
                     }
                     Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(e))),
-                    Poll::Ready(None) => return Poll::Ready(None), // stream ended, buffer empty
+                    Poll::Ready(None) => return Poll::Ready(None),
                     Poll::Pending => return Poll::Pending,
                 }
             } else {
@@ -96,13 +98,9 @@ where
                         let content = String::from_utf8_lossy(&self.buffer).to_string();
                         self.buffer.clear();
                         if !content.trim().is_empty() {
-                            return Poll::Ready(Some(Ok(StreamEvent::Partial {
-                                message: Message {
-                                    role: Role::Assistant,
-                                    content: content.trim().to_string(),
-                                    name: None,
-                                    metadata: None,
-                                },
+                            return Poll::Ready(Some(Ok(GenerateStreamEvent::Partial {
+                                partial: content,
+                                error: None,
                             })));
                         }
                         return Poll::Ready(None);

@@ -1,35 +1,41 @@
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use reqwest::Url;
-use tokio::time::timeout;
-use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "metrics")]
 use metrics::counter;
 #[cfg(feature = "tracing")]
-use tracing::{error, instrument};
+use tracing::instrument;
 
 use crate::errors::{Error, Result};
-use crate::stream::parser::StreamParser;
+use crate::stream::chat_stream_parser::ChatStreamParser;
+use crate::stream::generate_stream_parser::GenerateStreamParser;
 use crate::tools::registry::ToolRegistry;
-use crate::tools::{DynTool, ToolContext};
+use crate::tools::DynTool;
 use crate::transport::reqwest_transport::ReqwestTransport;
 use crate::transport::Transport;
-use crate::types::{ChatRequest, ChatResponse, StreamEvent};
+use crate::types::chat::{ChatResponse, ChatStream, SimpleChatRequest, StreamingChatRequest};
+use crate::types::generate::{
+    GenerateResponse, GenerateStream, SimpleGenerateRequest, StreamingGenerateRequest,
+};
 
 #[derive(Clone)]
 pub struct OllamaClient {
     transport: Arc<dyn Transport + Send + Sync>,
     tool_registry: ToolRegistry,
-    max_tool_runtime: Duration,
 }
 
 impl OllamaClient {
     pub fn builder() -> OllamaClientBuilder {
-        OllamaClientBuilder::new()
+        OllamaClientBuilder {
+            base_url: None,
+            api_key: None,
+            max_tool_runtime: None,
+            tool_registry: ToolRegistry::new(),
+            transport: None,
+        }
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, tool)))]
@@ -43,108 +49,28 @@ impl OllamaClient {
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
-    pub async fn chat_stream(&self, mut request: ChatRequest) -> Result<ChatStream> {
+    pub async fn chat_stream(&self, request: StreamingChatRequest) -> Result<ChatStream> {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.chat_requests_total", "type" => "streaming").increment(1);
 
-        request.stream = Some(true); // Ensure streaming is enabled
-        let byte_stream = self.transport.send_chat_request(request).await?;
-        let parser = StreamParser::new(byte_stream);
+        let byte_stream = self.transport.send_chat_request(request.into()).await?;
+        let parser = ChatStreamParser::new(byte_stream);
 
-        let client_arc = Arc::new(self.clone()); // Clone client for tool dispatching
-
-        let max_tool_runtime = self.max_tool_runtime;
-
-        let stream_with_dispatch = futures::stream::unfold(
-            (parser, client_arc),
-            move |(mut parser, client_arc)| async move {
-                match parser.next().await {
-                    Some(Ok(StreamEvent::ToolCall {
-                        invocation_id,
-                        name,
-                        input,
-                    })) => {
-                        let client_for_tool = client_arc.clone();
-                        let tool_registry_for_tool = client_arc.tool_registry.clone();
-                        let cancellation_token = CancellationToken::new();
-
-                        // Clone before moving into spawn
-                        let invocation_id_clone = invocation_id.clone();
-                        let name_clone = name.clone();
-                        let input_clone = input.clone();
-
-                        tokio::spawn(async move {
-                            #[cfg(feature = "metrics")]
-                            counter!("ollama_client.tool_calls_total").increment(1);
-
-                            let tool_result = if let Some(tool) =
-                                tool_registry_for_tool.get_tool(&name_clone)
-                            {
-                                let ctx = ToolContext {
-                                    cancellation_token: cancellation_token.clone(),
-                                };
-                                match timeout(max_tool_runtime, tool.call(input_clone, ctx)).await {
-                                    Ok(Ok(result)) => {
-                                        #[cfg(feature = "metrics")]
-                                        counter!("ollama_client.tool_call_successes_total")
-                                            .increment(1);
-                                        result
-                                    }
-                                    Ok(Err(e)) => {
-                                        #[cfg(feature = "metrics")]
-                                        counter!("ollama_client.tool_call_failures_total", "reason" => "tool_error").increment(1);
-                                        serde_json::json!({"error": e.to_string()})
-                                    }
-                                    Err(_) => {
-                                        #[cfg(feature = "metrics")]
-                                        counter!("ollama_client.tool_call_failures_total", "reason" => "timeout").increment(1);
-                                        serde_json::json!({"error": format!("Tool '{}' timed out after {:?}", name_clone, max_tool_runtime)})
-                                    }
-                                }
-                            } else {
-                                #[cfg(feature = "metrics")]
-                                counter!("ollama_client.tool_call_failures_total", "reason" => "tool_not_found").increment(1);
-                                serde_json::json!({"error": format!("Tool '{}' not found", name_clone)})
-                            };
-
-                            if let Err(e) = client_for_tool
-                                .send_tool_result(&invocation_id_clone, tool_result)
-                                .await
-                            {
-                                #[cfg(feature = "tracing")]
-                                error!("Failed to send tool result: {:?}", e);
-                                #[cfg(not(feature = "tracing"))]
-                                eprintln!("Failed to send tool result: {:?}", e);
-                            }
-                        });
-
-                        Some((
-                            Ok(StreamEvent::ToolCall {
-                                invocation_id,
-                                name,
-                                input,
-                            }),
-                            (parser, client_arc),
-                        ))
-                    }
-                    Some(event) => Some((event, (parser, client_arc))),
-                    None => None,
-                }
-            },
-        );
+        let response_stream = futures::stream::unfold(parser, |mut parser| async {
+            parser.next().await.map(|e| (e, parser))
+        });
 
         Ok(ChatStream {
-            inner: Box::pin(stream_with_dispatch),
+            inner: Box::pin(response_stream),
         })
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
-    pub async fn chat(&self, mut request: ChatRequest) -> Result<ChatResponse> {
+    pub async fn chat_simple(&self, request: SimpleChatRequest) -> Result<ChatResponse> {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.chat_requests_total", "type" => "non_streaming").increment(1);
 
-        request.stream = Some(false); // Ensure non-streaming
-        let response_bytes = self.transport.send_chat_request(request).await?;
+        let response_bytes = self.transport.send_chat_request(request.into()).await?;
 
         // Collect all bytes from the stream
         let full_response_bytes = response_bytes
@@ -160,29 +86,48 @@ impl OllamaClient {
             .map_err(|e| Error::Protocol(format!("Failed to deserialize chat response: {}", e)))
     }
 
-    #[cfg_attr(feature = "tracing", instrument(skip(self)))]
-    pub async fn send_tool_result(
+    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
+    pub async fn generate_stream(
         &self,
-        invocation_id: &str,
-        result: serde_json::Value,
-    ) -> Result<()> {
-        self.transport.send_tool_result(invocation_id, result).await
+        request: StreamingGenerateRequest,
+    ) -> Result<GenerateStream> {
+        #[cfg(feature = "metrics")]
+        counter!("ollama_client.generate_requests_total", "type" => "streaming").increment(1);
+
+        let byte_stream = self.transport.send_generate_request(request.into()).await?;
+        let parser = GenerateStreamParser::new(byte_stream);
+
+        let response_stream = futures::stream::unfold(parser, |mut parser| async {
+            parser.next().await.map(|event| (event, parser))
+        });
+
+        Ok(GenerateStream {
+            inner: Box::pin(response_stream),
+        })
     }
-}
 
-// ChatStream type
-pub struct ChatStream {
-    inner: Pin<Box<dyn Stream<Item = Result<StreamEvent>> + Send>>,
-}
+    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
+    pub async fn generate_simple(
+        &self,
+        request: SimpleGenerateRequest,
+    ) -> Result<GenerateResponse> {
+        #[cfg(feature = "metrics")]
+        counter!("ollama_client.generate_requests_total", "type" => "non_streaming").increment(1);
 
-impl Stream for ChatStream {
-    type Item = Result<StreamEvent>;
+        let response_bytes = self.transport.send_generate_request(request.into()).await?;
 
-    fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        self.inner.as_mut().poll_next(cx)
+        // Collect all bytes from the stream
+        let full_response_bytes = response_bytes
+            .try_collect::<Vec<bytes::Bytes>>()
+            .await
+            .map_err(|e| Error::Client(e.to_string()))?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<u8>>();
+
+        // Deserialize the full response
+        serde_json::from_slice(&full_response_bytes)
+            .map_err(|e| Error::Protocol(format!("Failed to deserialize generate response: {}", e)))
     }
 }
 
@@ -196,16 +141,6 @@ pub struct OllamaClientBuilder {
 }
 
 impl OllamaClientBuilder {
-    pub fn new() -> Self {
-        Self {
-            base_url: None,
-            api_key: None,
-            max_tool_runtime: None,
-            tool_registry: ToolRegistry::new(),
-            transport: None,
-        }
-    }
-
     pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = Some(base_url.into());
         self
@@ -253,17 +188,6 @@ impl OllamaClientBuilder {
         Ok(OllamaClient {
             transport,
             tool_registry: self.tool_registry,
-            max_tool_runtime: self.max_tool_runtime.unwrap_or(Duration::from_secs(30)),
         })
-    }
-
-    pub fn build_from_env(self) -> Result<OllamaClient> {
-        self.build() // The builder already handles environment variables if not explicitly set
-    }
-}
-
-impl Default for OllamaClientBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
