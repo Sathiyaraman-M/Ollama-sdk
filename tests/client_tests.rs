@@ -3,13 +3,13 @@ use std::time::Duration;
 
 use futures::StreamExt;
 
-use ollama_sdk::client::OllamaClient;
 use ollama_sdk::transport::mock_transport::MockTransport;
 use ollama_sdk::types::chat::{
     ChatRequestMessage, ChatResponse, ChatResponseMessage, ChatStreamEvent, SimpleChatRequest,
     StreamingChatRequest,
 };
 use ollama_sdk::types::Role;
+use ollama_sdk::OllamaClient;
 use ollama_sdk::Result;
 
 #[tokio::test]

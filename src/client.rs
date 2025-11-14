@@ -19,12 +19,7 @@ use crate::types::chat::{ChatResponse, ChatStream, SimpleChatRequest, StreamingC
 use crate::types::generate::{
     GenerateResponse, GenerateStream, SimpleGenerateRequest, StreamingGenerateRequest,
 };
-
-#[derive(Clone)]
-pub struct OllamaClient {
-    transport: Arc<dyn Transport + Send + Sync>,
-    tool_registry: ToolRegistry,
-}
+use crate::OllamaClient;
 use crate::{Error, Result};
 
 impl OllamaClient {

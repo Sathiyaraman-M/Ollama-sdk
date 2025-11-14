@@ -37,7 +37,7 @@ ollama-sdk = { version = "0.2.0", features = ["tracing", "metrics"] }
 ### Basic Generation (non-streaming)
 
 ```rust
-use ollama_sdk::client::OllamaClient;
+use ollama_sdk::OllamaClient;
 use ollama_sdk::types::generate::SimpleGenerateRequest;
 
 #[tokio::main]
@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```rust
 use futures::StreamExt;
-use ollama_sdk::client::OllamaClient;
+use ollama_sdk::OllamaClient;
 use ollama_sdk::types::generate::GenerateStreamEvent;
 use ollama_sdk::types::generate::StreamingGenerateRequest;
 
@@ -97,7 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Basic Chat (non-streaming)
 
 ```rust
-use ollama_sdk::client::OllamaClient;
+use ollama_sdk::OllamaClient;
 use ollama_sdk::types::chat::ChatRequestMessage;
 use ollama_sdk::types::chat::SimpleChatRequest;
 use ollama_sdk::types::Role;
@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Streaming Chat
 
 ```rust
-use ollama_sdk::client::OllamaClient;
+use ollama_sdk::OllamaClient;
 use ollama_sdk::types::chat::ChatRequestMessage;
 use ollama_sdk::types::chat::ChatStreamEvent;
 use ollama_sdk::types::chat::StreamingChatRequest;
