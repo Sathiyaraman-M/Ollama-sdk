@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use futures::Stream;
 
-use crate::errors::Result;
 use crate::types::chat::ChatRequest;
 use crate::types::generate::GenerateRequest;
+use crate::Result;
 
 pub mod mock_transport;
 pub mod reqwest_transport;

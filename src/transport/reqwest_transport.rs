@@ -8,10 +8,10 @@ use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use reqwest::{Client, Url};
 
-use crate::errors::{Error, Result};
 use crate::transport::Transport;
 use crate::types::chat::ChatRequest;
 use crate::types::generate::GenerateRequest;
+use crate::{Error, Result};
 
 pub struct ReqwestTransport {
     client: Client,

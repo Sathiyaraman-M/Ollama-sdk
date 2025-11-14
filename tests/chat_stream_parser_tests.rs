@@ -1,9 +1,9 @@
 use bytes::Bytes;
 use futures::{stream, StreamExt};
 
-use ollama_sdk::errors::Result;
 use ollama_sdk::stream::chat_stream_parser::ChatStreamParser;
 use ollama_sdk::types::chat::ChatStreamEvent;
+use ollama_sdk::Result;
 
 // Helper function to create a stream from a vector of byte chunks
 fn create_byte_stream(

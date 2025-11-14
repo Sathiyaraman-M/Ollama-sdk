@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::errors::{Error, Result};
 use crate::tools::DynTool;
+use crate::{Error, Result};
 
 #[derive(Default, Clone)]
 pub struct ToolRegistry {

@@ -9,7 +9,6 @@ use metrics::counter;
 #[cfg(feature = "tracing")]
 use tracing::instrument;
 
-use crate::errors::{Error, Result};
 use crate::stream::chat_stream_parser::ChatStreamParser;
 use crate::stream::generate_stream_parser::GenerateStreamParser;
 use crate::tools::registry::ToolRegistry;
@@ -26,6 +25,7 @@ pub struct OllamaClient {
     transport: Arc<dyn Transport + Send + Sync>,
     tool_registry: ToolRegistry,
 }
+use crate::{Error, Result};
 
 impl OllamaClient {
     pub fn builder() -> OllamaClientBuilder {

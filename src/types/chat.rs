@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
-use crate::errors::Result;
 use crate::types::Thinking;
+use crate::Result;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 

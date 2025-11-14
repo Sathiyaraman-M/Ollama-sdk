@@ -1,9 +1,9 @@
 use bytes::Bytes;
 use futures::stream;
 use futures::StreamExt;
-use ollama_sdk::errors::Result;
 use ollama_sdk::stream::generate_stream_parser::GenerateStreamParser;
 use ollama_sdk::types::generate::{GenerateResponse, GenerateStreamEvent};
+use ollama_sdk::Result;
 
 // Helper function to create a stream from a vector of byte chunks
 fn create_byte_stream(

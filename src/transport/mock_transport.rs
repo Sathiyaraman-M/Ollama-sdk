@@ -10,10 +10,10 @@ use futures::stream::{self};
 use futures::Stream;
 use futures::StreamExt;
 
-use crate::errors::{Error, Result};
 use crate::transport::Transport;
 use crate::types::chat::{ChatRequest, ChatResponse, ChatStreamEvent};
 use crate::types::generate::GenerateRequest;
+use crate::{Error, Result};
 
 #[derive(Clone, Default)]
 pub struct MockTransport {

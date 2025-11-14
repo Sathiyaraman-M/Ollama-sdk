@@ -3,9 +3,9 @@ use futures::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use crate::errors::Result;
 use crate::types::chat::{ChatResponse, ChatStreamEvent};
 use crate::types::OllamaError;
+use crate::Result;
 
 pub struct ChatStreamParser<S>
 where

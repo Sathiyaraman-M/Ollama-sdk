@@ -3,9 +3,9 @@ use futures::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use crate::errors::Result;
 use crate::types::generate::{GenerateResponse, GenerateStreamEvent};
 use crate::types::OllamaError;
+use crate::Result;
 
 pub struct GenerateStreamParser<S>
 where

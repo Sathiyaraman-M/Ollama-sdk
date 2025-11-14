@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
-use crate::errors::Error;
+use crate::Error;
 
 pub mod registry;
 
