@@ -1,30 +1,6 @@
-[package]
-name = "ollama-sdk"
+[workspace]
+resolver = "2"
+members = ["ollama-sdk"]
+
+[workspace.package]
 version = "0.2.1"
-edition = "2021"
-authors = ["Sathiyaraman-M <sathiyaraman2003@gmail.com>"]
-license = "MIT"
-description = "An idiomatic, unofficial Rust client for the Ollama API with support for streaming, tool calling, and custom transports."
-keywords = ["ollama", "ai", "llm", "chatbot", "sdk"]
-categories = ["api-bindings", "asynchronous", "web-programming"]
-repository = "https://github.com/SathiyaramanM/ollama-sdk"
-readme = "README.md"
-
-[features]
-default = []
-metrics = ["dep:metrics"]
-tracing = ["dep:tracing", "dep:tracing-subscriber"]
-
-[dependencies]
-bytes = "1.6.0"
-futures = "0.3.30"
-reqwest = { version = "0.12.4", features = ["json", "stream"] }
-serde = { version = "1.0.203", features = ["derive"] }
-serde_json = "1.0.117"
-thiserror = "1.0.61"
-tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros"] }
-tokio-util = { version = "0.7.11", features = ["io"] }
-async-trait = "0.1.80"
-metrics = { version = "0.24.2", optional = true }
-tracing = { version = "0.1", optional = true }
-tracing-subscriber = { version = "0.3", optional = true }
