@@ -1,9 +1,9 @@
 use std::pin::Pin;
 
 use crate::types::Thinking;
-use crate::{Error, Result};
-use bytes::Bytes;
+use crate::Result;
 use futures::Stream;
+use ollama_sdk_macros::FromBytes;
 use serde::{Deserialize, Serialize};
 
 use super::Role;
@@ -43,19 +43,13 @@ pub struct FunctionalTool {
     pub parameters: serde_json::Value,
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, FromBytes, Debug, Clone)]
 pub struct ChatResponse {
     pub model: String,
     #[serde(default)]
     pub created_at: String,
     pub message: ChatResponseMessage,
     pub done: bool,
-}
-
-impl ChatResponse {
-    pub fn from_bytes(bytes: Bytes) -> Result<Self> {
-        serde_json::from_slice(&bytes).map_err(Error::JsonParse)
-    }
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]

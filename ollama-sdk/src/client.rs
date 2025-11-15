@@ -69,7 +69,7 @@ impl OllamaClient {
 
         match response.body {
             Some(bytes) => ChatResponse::from_bytes(bytes),
-            None => Err(Error::Protocol("Missing resposne body".into())),
+            None => Err(Error::Protocol("Missing response body".into())),
         }
     }
 
@@ -115,7 +115,7 @@ impl OllamaClient {
 
         match response.body {
             Some(bytes) => GenerateResponse::from_bytes(bytes),
-            None => Err(Error::Protocol("Missing resposne body".into())),
+            None => Err(Error::Protocol("Missing response body".into())),
         }
     }
 
@@ -126,7 +126,7 @@ impl OllamaClient {
 
         match response.body {
             Some(bytes) => ListModelsResponse::from_bytes(bytes),
-            None => Err(Error::Protocol("Missing resposne body".into())),
+            None => Err(Error::Protocol("Missing response body".into())),
         }
     }
 
@@ -137,7 +137,7 @@ impl OllamaClient {
 
         match response.body {
             Some(bytes) => ListRunningModelsResponse::from_bytes(bytes),
-            None => Err(Error::Protocol("Missing resposne body".into())),
+            None => Err(Error::Protocol("Missing response body".into())),
         }
     }
 }

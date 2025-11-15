@@ -1,9 +1,9 @@
 use std::pin::Pin;
 
 use crate::types::Thinking;
-use crate::{Error, Result};
-use bytes::Bytes;
+use crate::Result;
 use futures::Stream;
+use ollama_sdk_macros::FromBytes;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Default, Debug, Clone)]
@@ -46,7 +46,7 @@ pub struct GenerateOptions {
     pub num_predict: Option<u16>,
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, FromBytes, Debug, Clone)]
 pub struct GenerateResponse {
     pub model: String,
     pub created_at: String,
@@ -68,12 +68,6 @@ pub struct GenerateResponse {
     pub eval_count: u64,
     #[serde(default)]
     pub eval_duration: u64,
-}
-
-impl GenerateResponse {
-    pub fn from_bytes(bytes: Bytes) -> Result<Self> {
-        serde_json::from_slice(&bytes).map_err(Error::JsonParse)
-    }
 }
 
 #[derive(Serialize, Default, Debug, Clone)]

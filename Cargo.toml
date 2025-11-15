@@ -1,7 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["ollama-sdk"]
+members = ["ollama-sdk", "ollama-sdk-macros"]
 
 [workspace.package]
 version = "0.2.2"
 edition = "2021"
+
+[workspace.dependencies]
+ollama-sdk-macros = { path = "ollama-sdk-macros", version = "0.2.3" }

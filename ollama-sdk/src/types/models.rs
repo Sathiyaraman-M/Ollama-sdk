@@ -1,9 +1,7 @@
-use bytes::Bytes;
+use ollama_sdk_macros::FromBytes;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Result};
-
-#[derive(Deserialize, Serialize, Default, Debug)]
+#[derive(Deserialize, Serialize, Default, FromBytes, Debug)]
 pub struct ListModelsResponse {
     pub models: Vec<OllamaModel>,
 }
@@ -26,7 +24,7 @@ pub struct OllamaModelDetails {
     pub quantization_level: String,
 }
 
-#[derive(Deserialize, Serialize, Default, Debug)]
+#[derive(Deserialize, Serialize, Default, FromBytes, Debug)]
 pub struct ListRunningModelsResponse {
     pub models: Vec<OllamaRunningModel>,
 }
@@ -50,16 +48,4 @@ pub struct OllamaRunningModelDetails {
     pub families: Vec<String>,
     pub parameter_size: String,
     pub quantization_level: String,
-}
-
-impl ListModelsResponse {
-    pub fn from_bytes(bytes: Bytes) -> Result<Self> {
-        serde_json::from_slice(&bytes).map_err(Error::JsonParse)
-    }
-}
-
-impl ListRunningModelsResponse {
-    pub fn from_bytes(bytes: Bytes) -> Result<Self> {
-        serde_json::from_slice(&bytes).map_err(Error::JsonParse)
-    }
 }
