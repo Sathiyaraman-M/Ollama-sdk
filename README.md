@@ -6,7 +6,7 @@ An idiomatic Rust library for interacting with the Ollama API, focusing on strea
 > This is not an official Ollama SDK.
 
 > [!WARNING]
-> This library is currently in pre-alpha so don't use it in production. Only generation and chat completions are implemented.
+> This library is currently in pre-alpha so don't use it in production.
 
 ## Features
 
@@ -33,6 +33,9 @@ ollama-sdk = { version = "0.2.2", features = ["tracing", "metrics"] }
 ```
 
 ## Usage
+
+> [!TIP]
+> Examples are present in the [examples](./ollama-sdk/examples) directory
 
 ### Basic Generation (non-streaming)
 
@@ -109,6 +112,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let messages = vec![ChatRequestMessage {
         role: Role::User,
         content: "What is the capital of France".to_string(),
+        ..Default::default()
     }];
 
     let chat_request = SimpleChatRequest {
