@@ -2,7 +2,13 @@
 name = "ollama-sdk-macros"
 version.workspace = true
 edition.workspace = true
-publish = false
+authors.workspace = true
+license.workspace = true
+description.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+readme = "./README.md"
 
 [lib]
 proc-macro = true
