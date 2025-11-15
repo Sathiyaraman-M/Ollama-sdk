@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use futures::Stream;
 
-use crate::types::chat::ChatRequest;
-use crate::types::generate::GenerateRequest;
+use crate::types::{HttpRequest, HttpResponse};
 use crate::Result;
 
 pub mod mock_transport;
@@ -13,13 +12,12 @@ pub mod reqwest_transport;
 
 #[async_trait]
 pub trait Transport: Send + Sync + 'static {
-    async fn send_generate_request(
-        &self,
-        request: GenerateRequest,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send>>>;
+    /// Sends a non-streaming HTTP request and returns the response.
+    async fn send_http_request(&self, request: HttpRequest) -> Result<HttpResponse>;
 
-    async fn send_chat_request(
+    /// Sends a streaming HTTP request and returns a stream of response bytes.
+    async fn send_http_stream_request(
         &self,
-        request: ChatRequest,
+        request: HttpRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send>>>;
 }

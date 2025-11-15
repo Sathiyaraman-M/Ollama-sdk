@@ -1,7 +1,8 @@
 use std::pin::Pin;
 
 use crate::types::Thinking;
-use crate::Result;
+use crate::{Error, Result};
+use bytes::Bytes;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +50,12 @@ pub struct ChatResponse {
     pub created_at: String,
     pub message: ChatResponseMessage,
     pub done: bool,
+}
+
+impl ChatResponse {
+    pub fn from_bytes(bytes: Bytes) -> Result<Self> {
+        serde_json::from_slice(&bytes).map_err(Error::JsonParse)
+    }
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]

@@ -1,7 +1,8 @@
 use std::pin::Pin;
 
 use crate::types::Thinking;
-use crate::Result;
+use crate::{Error, Result};
+use bytes::Bytes;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +46,7 @@ pub struct GenerateOptions {
     pub num_predict: Option<u16>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct GenerateResponse {
     pub model: String,
     pub created_at: String,
@@ -69,7 +70,13 @@ pub struct GenerateResponse {
     pub eval_duration: u64,
 }
 
-#[derive(Default, Debug, Clone)]
+impl GenerateResponse {
+    pub fn from_bytes(bytes: Bytes) -> Result<Self> {
+        serde_json::from_slice(&bytes).map_err(Error::JsonParse)
+    }
+}
+
+#[derive(Serialize, Default, Debug, Clone)]
 pub struct SimpleGenerateRequest {
     pub model: String,
     pub prompt: Option<String>,
@@ -97,7 +104,7 @@ impl From<SimpleGenerateRequest> for GenerateRequest {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Serialize, Default, Debug, Clone)]
 pub struct StreamingGenerateRequest {
     pub model: String,
     pub prompt: Option<String>,

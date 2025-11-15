@@ -1,4 +1,5 @@
-use futures::{StreamExt, TryStreamExt};
+use futures::stream::unfold;
+use futures::StreamExt;
 
 #[cfg(feature = "metrics")]
 use metrics::counter;
@@ -9,10 +10,14 @@ use crate::builder::OllamaClientBuilder;
 use crate::stream::chat_stream_parser::ChatStreamParser;
 use crate::stream::generate_stream_parser::GenerateStreamParser;
 use crate::tools::DynTool;
-use crate::types::chat::{ChatResponse, ChatStream, SimpleChatRequest, StreamingChatRequest};
-use crate::types::generate::{
-    GenerateResponse, GenerateStream, SimpleGenerateRequest, StreamingGenerateRequest,
+use crate::types::chat::{
+    ChatRequest, ChatResponse, ChatStream, SimpleChatRequest, StreamingChatRequest,
 };
+use crate::types::generate::{
+    GenerateRequest, GenerateResponse, GenerateStream, SimpleGenerateRequest,
+    StreamingGenerateRequest,
+};
+use crate::types::HttpRequest;
 use crate::OllamaClient;
 use crate::{Error, Result};
 
@@ -36,10 +41,13 @@ impl OllamaClient {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.chat_requests_total", "type" => "streaming").increment(1);
 
-        let byte_stream = self.transport.send_chat_request(request.into()).await?;
+        let chat_request = ChatRequest::from(request);
+        let request = HttpRequest::new("/api/chat").post().body(chat_request)?;
+
+        let byte_stream = self.transport.send_http_stream_request(request).await?;
         let parser = ChatStreamParser::new(byte_stream);
 
-        let response_stream = futures::stream::unfold(parser, |mut parser| async {
+        let response_stream = unfold(parser, |mut parser| async {
             parser.next().await.map(|e| (e, parser))
         });
 
@@ -53,20 +61,15 @@ impl OllamaClient {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.chat_requests_total", "type" => "non_streaming").increment(1);
 
-        let response_bytes = self.transport.send_chat_request(request.into()).await?;
+        let chat_request = ChatRequest::from(request);
+        let request = HttpRequest::new("/api/chat").post().body(chat_request)?;
 
-        // Collect all bytes from the stream
-        let full_response_bytes = response_bytes
-            .try_collect::<Vec<bytes::Bytes>>()
-            .await
-            .map_err(|e| Error::Client(e.to_string()))?
-            .into_iter()
-            .flatten()
-            .collect::<Vec<u8>>();
+        let response = self.transport.send_http_request(request).await?;
 
-        // Deserialize the full response
-        serde_json::from_slice(&full_response_bytes)
-            .map_err(|e| Error::Protocol(format!("Failed to deserialize chat response: {}", e)))
+        match response.body {
+            Some(bytes) => ChatResponse::from_bytes(bytes),
+            None => Err(Error::Protocol("Missing resposne body".into())),
+        }
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
@@ -77,10 +80,15 @@ impl OllamaClient {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.generate_requests_total", "type" => "streaming").increment(1);
 
-        let byte_stream = self.transport.send_generate_request(request.into()).await?;
+        let generate_request = GenerateRequest::from(request);
+        let request = HttpRequest::new("/api/generate")
+            .post()
+            .body(generate_request)?;
+
+        let byte_stream = self.transport.send_http_stream_request(request).await?;
         let parser = GenerateStreamParser::new(byte_stream);
 
-        let response_stream = futures::stream::unfold(parser, |mut parser| async {
+        let response_stream = unfold(parser, |mut parser| async {
             parser.next().await.map(|event| (event, parser))
         });
 
@@ -97,19 +105,16 @@ impl OllamaClient {
         #[cfg(feature = "metrics")]
         counter!("ollama_client.generate_requests_total", "type" => "non_streaming").increment(1);
 
-        let response_bytes = self.transport.send_generate_request(request.into()).await?;
+        let generate_request = GenerateRequest::from(request);
+        let request = HttpRequest::new("/api/generate")
+            .post()
+            .body(generate_request)?;
 
-        // Collect all bytes from the stream
-        let full_response_bytes = response_bytes
-            .try_collect::<Vec<bytes::Bytes>>()
-            .await
-            .map_err(|e| Error::Client(e.to_string()))?
-            .into_iter()
-            .flatten()
-            .collect::<Vec<u8>>();
+        let response = self.transport.send_http_request(request).await?;
 
-        // Deserialize the full response
-        serde_json::from_slice(&full_response_bytes)
-            .map_err(|e| Error::Protocol(format!("Failed to deserialize generate response: {}", e)))
+        match response.body {
+            Some(bytes) => GenerateResponse::from_bytes(bytes),
+            None => Err(Error::Protocol("Missing resposne body".into())),
+        }
     }
 }

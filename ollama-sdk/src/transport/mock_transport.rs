@@ -11,16 +11,19 @@ use futures::Stream;
 use futures::StreamExt;
 
 use crate::transport::Transport;
-use crate::types::chat::{ChatRequest, ChatResponse, ChatStreamEvent};
-use crate::types::generate::GenerateRequest;
+use crate::types::chat::ChatStreamEvent;
+use crate::types::{HttpRequest, HttpResponse};
 use crate::{Error, Result};
 
 #[derive(Clone, Default)]
 pub struct MockTransport {
-    chat_responses: Arc<Mutex<Vec<ChatStreamEvent>>>,
-    raw_chat_responses: Arc<Mutex<Vec<String>>>, // Added for raw JSON strings
-    non_streaming_response: Arc<Mutex<Option<ChatResponse>>>, // Added for non-streaming
-    tool_results_sent: Arc<Mutex<Vec<(String, serde_json::Value)>>>,
+    // For streaming responses (chat/generate)
+    chat_stream_events: Arc<Mutex<Vec<ChatStreamEvent>>>,
+    generate_stream_bytes: Arc<Mutex<Vec<Bytes>>>,
+    raw_chat_stream_strings: Arc<Mutex<Vec<String>>>,
+
+    // For non-streaming responses
+    non_streaming_http_response: Arc<Mutex<Option<HttpResponse>>>,
 }
 
 impl MockTransport {
@@ -28,77 +31,47 @@ impl MockTransport {
         Self::default()
     }
 
-    pub fn with_chat_responses(self, responses: Vec<ChatStreamEvent>) -> Self {
-        *self.chat_responses.lock().unwrap() = responses;
+    pub fn with_chat_stream_events(self, events: Vec<ChatStreamEvent>) -> Self {
+        *self.chat_stream_events.lock().unwrap() = events;
         self
     }
 
-    pub fn with_streaming_raw_responses(self, responses: Vec<String>) -> Self {
-        *self.raw_chat_responses.lock().unwrap() = responses;
+    pub fn with_generate_stream_bytes(self, bytes: Vec<Bytes>) -> Self {
+        *self.generate_stream_bytes.lock().unwrap() = bytes;
         self
     }
 
-    pub fn with_non_streaming_response(self, response: ChatResponse) -> Self {
-        *self.non_streaming_response.lock().unwrap() = Some(response);
+    pub fn with_raw_chat_stream_strings(self, strings: Vec<String>) -> Self {
+        *self.raw_chat_stream_strings.lock().unwrap() = strings;
         self
     }
 
-    pub fn get_tool_results_sent(&self) -> Vec<(String, serde_json::Value)> {
-        self.tool_results_sent.lock().unwrap().clone()
+    pub fn with_non_streaming_http_response(self, response: HttpResponse) -> Self {
+        *self.non_streaming_http_response.lock().unwrap() = Some(response);
+        self
     }
 }
 
 #[async_trait]
 impl Transport for MockTransport {
-    #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
-    async fn send_generate_request(
-        &self,
-        request: GenerateRequest,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send>>> {
-        if request.stream {
-            let responses = self
-                .chat_responses
-                .lock()
-                .unwrap()
-                .drain(..)
-                .collect::<Vec<_>>();
-            let byte_stream = stream::iter(responses)
-                .map(|event| {
-                    let json_string = serde_json::to_string(&event).map_err(|e| {
-                        Error::Protocol(format!("Failed to serialize mock event: {}", e))
-                    })?;
-                    Ok(Bytes::from(format!("{}\n", json_string)))
-                })
-                .boxed();
-            Ok(byte_stream)
+    #[cfg_attr(feature = "tracing", instrument(skip(self, _request)))]
+    async fn send_http_request(&self, _request: HttpRequest) -> Result<HttpResponse> {
+        if let Some(response) = self.non_streaming_http_response.lock().unwrap().take() {
+            Ok(response)
         } else {
-            let response = self
-                .non_streaming_response
-                .lock()
-                .unwrap()
-                .take()
-                .ok_or_else(|| {
-                    Error::Protocol(
-                        "MockTransport: No non-streaming response configured".to_string(),
-                    )
-                })?;
-
-            let json_string = serde_json::to_string(&response).map_err(|e| {
-                Error::Protocol(format!("Failed to serialize mock generate response: {}", e))
-            })?;
-            let byte_stream = stream::once(async { Ok(Bytes::from(json_string)) }).boxed();
-            Ok(byte_stream)
+            // Default empty response if no mock is configured
+            Ok(HttpResponse { body: None })
         }
     }
 
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
-    async fn send_chat_request(
+    async fn send_http_stream_request(
         &self,
-        request: ChatRequest,
+        request: HttpRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send>>> {
-        if request.stream.unwrap_or(false) {
+        if request.url == "/api/chat" {
             let raw_responses = self
-                .raw_chat_responses
+                .raw_chat_stream_strings
                 .lock()
                 .unwrap()
                 .drain(..)
@@ -107,15 +80,17 @@ impl Transport for MockTransport {
                 let byte_stream = stream::iter(raw_responses)
                     .map(|s| Ok(Bytes::from(format!("{}\n", s))))
                     .boxed();
-                Ok(byte_stream)
-            } else {
-                let responses = self
-                    .chat_responses
-                    .lock()
-                    .unwrap()
-                    .drain(..)
-                    .collect::<Vec<_>>();
-                let byte_stream = stream::iter(responses)
+                return Ok(byte_stream);
+            }
+
+            let chat_events = self
+                .chat_stream_events
+                .lock()
+                .unwrap()
+                .drain(..)
+                .collect::<Vec<_>>();
+            if !chat_events.is_empty() {
+                let byte_stream = stream::iter(chat_events)
                     .map(|event| {
                         let json_string = serde_json::to_string(&event).map_err(|e| {
                             Error::Protocol(format!("Failed to serialize mock event: {}", e))
@@ -123,25 +98,22 @@ impl Transport for MockTransport {
                         Ok(Bytes::from(format!("{}\n", json_string)))
                     })
                     .boxed();
-                Ok(byte_stream)
+                return Ok(byte_stream);
             }
-        } else {
-            let response = self
-                .non_streaming_response
+        } else if request.url == "/api/generate" {
+            let generate_bytes = self
+                .generate_stream_bytes
                 .lock()
                 .unwrap()
-                .take()
-                .ok_or_else(|| {
-                    Error::Protocol(
-                        "MockTransport: No non-streaming response configured".to_string(),
-                    )
-                })?;
-
-            let json_string = serde_json::to_string(&response).map_err(|e| {
-                Error::Protocol(format!("Failed to serialize mock chat response: {}", e))
-            })?;
-            let byte_stream = stream::once(async { Ok(Bytes::from(json_string)) }).boxed();
-            Ok(byte_stream)
+                .drain(..)
+                .collect::<Vec<_>>();
+            if !generate_bytes.is_empty() {
+                let byte_stream = stream::iter(generate_bytes).map(Ok).boxed();
+                return Ok(byte_stream);
+            }
         }
+
+        // Default empty stream if no mock is configured for the given request
+        Ok(stream::empty().boxed())
     }
 }

@@ -31,6 +31,9 @@ pub enum Error {
     #[error("Server error: {0}")]
     Server(String),
 
+    #[error("JSON error: {0}")]
+    JsonParse(#[from] serde_json::Error),
+
     #[error("Protocol error: {0}")]
     Protocol(String),
 
