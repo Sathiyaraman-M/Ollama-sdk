@@ -1,7 +1,7 @@
 [package]
 name = "ollama-sdk"
 version.workspace = true
-edition = "2021"
+edition.workspace = true
 authors = ["Sathiyaraman-M <sathiyaraman2003@gmail.com>"]
 license = "MIT"
 description = "An idiomatic, unofficial Rust client for the Ollama API with support for streaming, tool calling, and custom transports."

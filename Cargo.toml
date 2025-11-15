@@ -4,3 +4,4 @@ members = ["ollama-sdk"]
 
 [workspace.package]
 version = "0.2.2"
+edition = "2021"
