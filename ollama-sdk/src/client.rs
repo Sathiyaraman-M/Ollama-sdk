@@ -17,6 +17,7 @@ use crate::types::generate::{
     GenerateRequest, GenerateResponse, GenerateStream, SimpleGenerateRequest,
     StreamingGenerateRequest,
 };
+use crate::types::models::{ListModelsResponse, ListRunningModelsResponse};
 use crate::types::HttpRequest;
 use crate::OllamaClient;
 use crate::{Error, Result};
@@ -114,6 +115,28 @@ impl OllamaClient {
 
         match response.body {
             Some(bytes) => GenerateResponse::from_bytes(bytes),
+            None => Err(Error::Protocol("Missing resposne body".into())),
+        }
+    }
+
+    pub async fn list_models(&self) -> Result<ListModelsResponse> {
+        let request = HttpRequest::new("/api/tags");
+
+        let response = self.transport.send_http_request(request).await?;
+
+        match response.body {
+            Some(bytes) => ListModelsResponse::from_bytes(bytes),
+            None => Err(Error::Protocol("Missing resposne body".into())),
+        }
+    }
+
+    pub async fn list_running_models(&self) -> Result<ListRunningModelsResponse> {
+        let request = HttpRequest::new("/api/ps");
+
+        let response = self.transport.send_http_request(request).await?;
+
+        match response.body {
+            Some(bytes) => ListRunningModelsResponse::from_bytes(bytes),
             None => Err(Error::Protocol("Missing resposne body".into())),
         }
     }
