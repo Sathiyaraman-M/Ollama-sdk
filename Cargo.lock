@@ -657,7 +657,7 @@ dependencies = [
 
 [[package]]
 name = "ollama-sdk"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "async-trait",
  "bytes",
@@ -676,7 +676,7 @@ dependencies = [
 
 [[package]]
 name = "ollama-sdk-macros"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "proc-macro2",
  "quote",

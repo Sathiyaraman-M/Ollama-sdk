@@ -3,7 +3,7 @@ resolver = "2"
 members = ["ollama-sdk", "ollama-sdk-macros"]
 
 [workspace.package]
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 authors = ["Sathiyaraman-M <sathiyaraman2003@gmail.com>"]
 license = "MIT"
