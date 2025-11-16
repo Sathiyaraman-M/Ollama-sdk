@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use futures::stream;
 use futures::StreamExt;
-use ollama_sdk::stream::generate_stream_parser::GenerateStreamParser;
+use ollama_sdk::stream::GenerateStreamParser;
 use ollama_sdk::types::generate::{GenerateResponse, GenerateStreamEvent};
 use ollama_sdk::Result;
 
