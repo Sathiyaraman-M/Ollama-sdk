@@ -6,10 +6,9 @@ use metrics::counter;
 #[cfg(feature = "tracing")]
 use tracing::instrument;
 
-use crate::builder::OllamaClientBuilder;
-use crate::stream::chat_stream_parser::ChatStreamParser;
-use crate::stream::generate_stream_parser::GenerateStreamParser;
-use crate::tools::DynTool;
+use crate::stream::{ChatStreamParser, GenerateStreamParser};
+use crate::tools::{DynTool, ToolRegistry};
+use crate::transport::Transport;
 use crate::types::chat::{
     ChatRequest, ChatResponse, ChatStream, SimpleChatRequest, StreamingChatRequest,
 };
@@ -17,10 +16,14 @@ use crate::types::generate::{
     GenerateRequest, GenerateResponse, GenerateStream, SimpleGenerateRequest,
     StreamingGenerateRequest,
 };
-use crate::types::models::{ListModelsResponse, ListRunningModelsResponse};
-use crate::types::HttpRequest;
-use crate::OllamaClient;
-use crate::{Error, Result};
+use crate::types::{HttpRequest, ListModelsResponse, ListRunningModelsResponse};
+use crate::{Error, OllamaClientBuilder, Result};
+
+#[derive(Clone)]
+pub struct OllamaClient {
+    pub(crate) transport: Arc<dyn Transport + Send + Sync>,
+    pub(crate) tool_registry: ToolRegistry,
+}
 
 impl OllamaClient {
     pub fn builder() -> OllamaClientBuilder {

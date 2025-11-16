@@ -5,11 +5,9 @@ use tracing::instrument;
 
 use reqwest::Url;
 
-use crate::tools::registry::ToolRegistry;
-use crate::transport::reqwest_transport::ReqwestTransport;
-use crate::transport::Transport;
-use crate::OllamaClient;
-use crate::{Error, Result};
+use crate::tools::ToolRegistry;
+use crate::transport::{ReqwestTransport, Transport};
+use crate::{Error, OllamaClient, Result};
 
 pub struct OllamaClientBuilder {
     base_url: Option<String>,

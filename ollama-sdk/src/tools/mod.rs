@@ -9,7 +9,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Error;
 
-pub mod registry;
+mod registry;
+
+pub use registry::ToolRegistry;
 
 /// Context provided to a tool during its execution.
 #[derive(Clone)]

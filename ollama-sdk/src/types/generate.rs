@@ -6,6 +6,8 @@ use futures::Stream;
 use ollama_sdk_macros::FromBytes;
 use serde::{Deserialize, Serialize};
 
+use super::ThinkingLevel;
+
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct GenerateRequest {
     pub model: String,
@@ -82,6 +84,46 @@ pub struct SimpleGenerateRequest {
     pub options: Option<GenerateOptions>,
 }
 
+impl SimpleGenerateRequest {
+    pub fn new(model: String, prompt: String) -> Self {
+        Self {
+            model,
+            prompt: Some(prompt),
+            ..Default::default()
+        }
+    }
+
+    pub fn enable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(true).into();
+        self
+    }
+
+    pub fn disable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(false).into();
+        self
+    }
+
+    pub fn set_thinking_level(mut self, level: ThinkingLevel) -> Self {
+        self.think = Thinking::Level(level).into();
+        self
+    }
+
+    pub fn system(mut self, system: String) -> Self {
+        self.system = Some(system);
+        self
+    }
+
+    pub fn images(mut self, images: Vec<String>) -> Self {
+        self.images = Some(images);
+        self
+    }
+
+    pub fn options(mut self, options: GenerateOptions) -> Self {
+        self.options = Some(options);
+        self
+    }
+}
+
 impl From<SimpleGenerateRequest> for GenerateRequest {
     fn from(request: SimpleGenerateRequest) -> GenerateRequest {
         GenerateRequest {
@@ -108,6 +150,46 @@ pub struct StreamingGenerateRequest {
     pub think: Option<Thinking>,
     pub raw: Option<bool>,
     pub options: Option<GenerateOptions>,
+}
+
+impl StreamingGenerateRequest {
+    pub fn new(model: String, prompt: String) -> Self {
+        Self {
+            model,
+            prompt: Some(prompt),
+            ..Default::default()
+        }
+    }
+
+    pub fn enable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(true).into();
+        self
+    }
+
+    pub fn disable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(false).into();
+        self
+    }
+
+    pub fn set_thinking_level(mut self, level: ThinkingLevel) -> Self {
+        self.think = Thinking::Level(level).into();
+        self
+    }
+
+    pub fn system(mut self, system: String) -> Self {
+        self.system = Some(system);
+        self
+    }
+
+    pub fn images(mut self, images: Vec<String>) -> Self {
+        self.images = Some(images);
+        self
+    }
+
+    pub fn options(mut self, options: GenerateOptions) -> Self {
+        self.options = Some(options);
+        self
+    }
 }
 
 impl From<StreamingGenerateRequest> for GenerateRequest {

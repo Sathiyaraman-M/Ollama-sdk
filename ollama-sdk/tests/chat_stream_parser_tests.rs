@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use futures::{stream, StreamExt};
 
-use ollama_sdk::stream::chat_stream_parser::ChatStreamParser;
+use ollama_sdk::stream::ChatStreamParser;
 use ollama_sdk::types::chat::ChatStreamEvent;
 use ollama_sdk::Result;
 

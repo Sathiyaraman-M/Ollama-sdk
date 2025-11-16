@@ -6,7 +6,7 @@ use futures::Stream;
 use ollama_sdk_macros::FromBytes;
 use serde::{Deserialize, Serialize};
 
-use super::Role;
+use super::{Role, ThinkingLevel};
 
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct ChatRequest {
@@ -26,6 +26,21 @@ pub struct ChatRequestMessage {
     pub content: String,
     #[serde(default)]
     pub tool_calls: Vec<FunctionalTool>,
+}
+
+impl ChatRequestMessage {
+    pub fn new(role: Role, content: String) -> Self {
+        Self {
+            role,
+            content,
+            tool_calls: Vec::new(),
+        }
+    }
+
+    pub fn set_tool_calls(mut self, tool_calls: Vec<FunctionalTool>) -> Self {
+        self.tool_calls = tool_calls;
+        self
+    }
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -79,6 +94,31 @@ pub struct SimpleChatRequest {
     pub think: Thinking,
 }
 
+impl SimpleChatRequest {
+    pub fn new(model: String, messages: Vec<ChatRequestMessage>) -> Self {
+        Self {
+            model,
+            messages,
+            think: Thinking::default(),
+        }
+    }
+
+    pub fn enable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(true);
+        self
+    }
+
+    pub fn disable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(false);
+        self
+    }
+
+    pub fn set_thinking_level(mut self, level: ThinkingLevel) -> Self {
+        self.think = Thinking::Level(level);
+        self
+    }
+}
+
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct StreamingChatRequest {
     pub model: String,
@@ -86,6 +126,37 @@ pub struct StreamingChatRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<ToolSpec>>,
     pub think: Thinking,
+}
+
+impl StreamingChatRequest {
+    pub fn new(model: String, messages: Vec<ChatRequestMessage>) -> Self {
+        Self {
+            model,
+            messages,
+            tools: None,
+            think: Thinking::default(),
+        }
+    }
+
+    pub fn enable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(true);
+        self
+    }
+
+    pub fn disable_thinking(mut self) -> Self {
+        self.think = Thinking::Boolean(false);
+        self
+    }
+
+    pub fn set_thinking_level(mut self, level: ThinkingLevel) -> Self {
+        self.think = Thinking::Level(level);
+        self
+    }
+
+    pub fn tools(mut self, tools: Vec<ToolSpec>) -> Self {
+        self.tools = Some(tools);
+        self
+    }
 }
 
 impl From<SimpleChatRequest> for ChatRequest {

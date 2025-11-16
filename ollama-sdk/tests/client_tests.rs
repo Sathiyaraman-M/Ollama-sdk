@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use futures::StreamExt;
-use serde_json;
 
-use ollama_sdk::transport::mock_transport::MockTransport;
+use ollama_sdk::transport::MockTransport;
 use ollama_sdk::types::chat::{
     ChatRequestMessage, ChatResponse, ChatResponseMessage, ChatStreamEvent, SimpleChatRequest,
     StreamingChatRequest,

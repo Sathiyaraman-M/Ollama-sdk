@@ -1,22 +1,14 @@
-use std::sync::Arc;
 
 use thiserror::Error;
 
-use self::tools::registry::ToolRegistry;
-use self::transport::Transport;
-
-pub mod builder;
-pub mod client;
+mod builder;
+mod client;
 pub mod stream;
 pub mod tools;
 pub mod transport;
 pub mod types;
 
-#[derive(Clone)]
-pub struct OllamaClient {
-    transport: Arc<dyn Transport + Send + Sync>,
-    tool_registry: ToolRegistry,
-}
+pub use crate::{builder::OllamaClientBuilder, client::OllamaClient};
 
 pub type Result<T> = std::result::Result<T, Error>;
 

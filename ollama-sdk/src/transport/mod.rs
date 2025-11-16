@@ -7,8 +7,11 @@ use futures::Stream;
 use crate::types::{HttpRequest, HttpResponse};
 use crate::Result;
 
-pub mod mock_transport;
-pub mod reqwest_transport;
+mod mock_transport;
+mod reqwest_transport;
+
+pub use mock_transport::MockTransport;
+pub use reqwest_transport::ReqwestTransport;
 
 #[async_trait]
 pub trait Transport: Send + Sync + 'static {
