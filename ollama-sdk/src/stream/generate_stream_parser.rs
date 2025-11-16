@@ -7,6 +7,12 @@ use crate::types::generate::{GenerateResponse, GenerateStreamEvent};
 use crate::types::OllamaError;
 use crate::Result;
 
+/// A parser for handling byte streams from the Ollama generate API and converting them
+/// into a stream of [`GenerateStreamEvent`]s.
+///
+/// This parser buffers incoming bytes, splits them by newline characters,
+/// and attempts to deserialize each line into a [`GenerateResponse`], [`OllamaError`],
+/// or a [`Partial`](variant@GenerateStreamEvent::Partial) event if deserialization fails.
 pub struct GenerateStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
@@ -19,6 +25,7 @@ impl<S> GenerateStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
+    /// Creates a new [`GenerateStreamParser`] from an underlying byte stream.
     pub fn new(stream: S) -> Self {
         Self {
             inner: stream,
@@ -26,6 +33,11 @@ where
         }
     }
 
+    /// Attempts to parse complete lines from the internal buffer into [`GenerateStreamEvent`]s.
+    ///
+    /// Returns `Some(Ok(GenerateStreamEvent))` if a complete event can be parsed,
+    /// `Some(Err(Error))` if a parsing error occurs, or `None` if no complete line
+    /// is available in the buffer.
     fn parse_lines(&mut self) -> Option<Result<GenerateStreamEvent>> {
         loop {
             let newline_pos = self.buffer.iter().position(|&b| b == b'\n')?;

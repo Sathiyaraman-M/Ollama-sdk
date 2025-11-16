@@ -12,6 +12,11 @@ use crate::transport::Transport;
 use crate::types::{HttpRequest, HttpResponse, HttpVerb};
 use crate::{Error, Result};
 
+/// A [`Transport`] implementation that uses the `reqwest` crate for making HTTP requests.
+///
+/// This is the default transport used by [`OllamaClient`](crate::OllamaClient) if no custom transport
+/// is provided. It handles constructing `reqwest` clients, sending requests,
+/// and processing responses, including streaming responses.
 pub struct ReqwestTransport {
     client: Client,
     base_url: Url,
@@ -19,6 +24,16 @@ pub struct ReqwestTransport {
 }
 
 impl ReqwestTransport {
+    /// Creates a new `ReqwestTransport`.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_url` - The base URL of the Ollama server.
+    /// * `api_key` - An optional API key for authentication.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Client`] if the `reqwest` client cannot be built.
     pub fn new(base_url: Url, api_key: Option<String>) -> Result<Self> {
         let client = Client::builder()
             .build()
@@ -60,6 +75,15 @@ impl ReqwestTransport {
 
 #[async_trait]
 impl Transport for ReqwestTransport {
+    /// Sends a non-streaming HTTP request using `reqwest`.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The [`HttpRequest`] to send.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Transport`] if the request fails or the response cannot be read.
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
     async fn send_http_request(&self, request: HttpRequest) -> Result<HttpResponse> {
         let response = self.build_and_send_request(request).await?;
@@ -69,6 +93,15 @@ impl Transport for ReqwestTransport {
         })
     }
 
+    /// Sends a streaming HTTP request using `reqwest` and returns a stream of response bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The [`HttpRequest`] to send.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Transport`] if the request fails or the stream cannot be established.
     #[cfg_attr(feature = "tracing", instrument(skip(self, request)))]
     async fn send_http_stream_request(
         &self,
