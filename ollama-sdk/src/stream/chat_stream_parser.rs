@@ -7,6 +7,13 @@ use crate::types::chat::{ChatResponse, ChatStreamEvent};
 use crate::types::OllamaError;
 use crate::Result;
 
+/// A parser for handling byte streams from the Ollama chat API and converting them
+/// into a stream of [`ChatStreamEvent`]s.
+///
+/// This parser buffers incoming bytes, splits them by newline characters,
+/// and attempts to deserialize each line into a [`ChatResponse`], [`OllamaError`],
+/// or returns a [`Partial`](variant@ChatStreamEvent::Partial) event if deserialization
+/// fails.
 pub struct ChatStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
@@ -19,6 +26,7 @@ impl<S> ChatStreamParser<S>
 where
     S: Stream<Item = Result<Bytes>> + Send + Unpin,
 {
+    /// Creates a new [`ChatStreamParser`] from an underlying byte stream.
     pub fn new(stream: S) -> Self {
         Self {
             inner: stream,
@@ -26,6 +34,11 @@ where
         }
     }
 
+    /// Attempts to parse complete lines from the internal buffer into [`ChatStreamEvent`]s.
+    ///
+    /// Returns `Some(Ok(ChatStreamEvent))` if a complete event can be parsed,
+    /// `Some(Err(Error))` if a parsing error occurs, or [None] if no complete line
+    /// is available in the buffer.
     fn parse_lines(&mut self) -> Option<Result<ChatStreamEvent>> {
         loop {
             let newline_pos = self.buffer.iter().position(|&b| b == b'\n')?;
