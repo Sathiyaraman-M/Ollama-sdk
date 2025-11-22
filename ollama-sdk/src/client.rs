@@ -1,21 +1,18 @@
 use std::sync::Arc;
 
-use futures::stream::unfold;
-use futures::StreamExt;
-
 #[cfg(feature = "metrics")]
 use metrics::counter;
 #[cfg(feature = "tracing")]
 use tracing::instrument;
 
-use crate::stream::{ChatStreamParser, GenerateStreamParser};
+use crate::parser::GenericStreamParser;
 use crate::tools::{DynTool, ToolRegistry};
 use crate::transport::Transport;
 use crate::types::chat::{
-    ChatRequest, ChatResponse, ChatStream, SimpleChatRequest, StreamingChatRequest,
+    ChatRequest, ChatResponse, ChatStream, ChatStreamEvent, SimpleChatRequest, StreamingChatRequest,
 };
 use crate::types::generate::{
-    GenerateRequest, GenerateResponse, GenerateStream, SimpleGenerateRequest,
+    GenerateRequest, GenerateResponse, GenerateStream, GenerateStreamEvent, SimpleGenerateRequest,
     StreamingGenerateRequest,
 };
 use crate::types::{HttpRequest, ListModelsResponse, ListRunningModelsResponse};
@@ -83,14 +80,10 @@ impl OllamaClient {
         let request = HttpRequest::new("/api/chat").post().body(chat_request)?;
 
         let byte_stream = self.transport.send_http_stream_request(request).await?;
-        let parser = ChatStreamParser::new(byte_stream);
-
-        let response_stream = unfold(parser, |mut parser| async {
-            parser.next().await.map(|e| (e, parser))
-        });
+        let parser = GenericStreamParser::<_, ChatResponse, ChatStreamEvent>::new(byte_stream);
 
         Ok(ChatStream {
-            inner: Box::pin(response_stream),
+            inner: Box::pin(parser),
         })
     }
 
@@ -140,14 +133,11 @@ impl OllamaClient {
             .body(generate_request)?;
 
         let byte_stream = self.transport.send_http_stream_request(request).await?;
-        let parser = GenerateStreamParser::new(byte_stream);
-
-        let response_stream = unfold(parser, |mut parser| async {
-            parser.next().await.map(|event| (event, parser))
-        });
+        let parser =
+            GenericStreamParser::<_, GenerateResponse, GenerateStreamEvent>::new(byte_stream);
 
         Ok(GenerateStream {
-            inner: Box::pin(response_stream),
+            inner: Box::pin(parser),
         })
     }
 

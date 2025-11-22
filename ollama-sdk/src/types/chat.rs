@@ -2,8 +2,10 @@
 
 use std::pin::Pin;
 
+use crate::parser::{GenericStreamParser, StreamEventExt};
 use crate::types::Thinking;
 use crate::Result;
+use bytes::Bytes;
 use futures::Stream;
 use ollama_sdk_macros::FromBytes;
 use serde::{Deserialize, Serialize};
@@ -278,5 +280,31 @@ impl Stream for ChatStream {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         self.inner.as_mut().poll_next(cx)
+    }
+}
+
+impl ChatStream {
+    pub fn from_bytes_stream<S>(stream: S) -> Self
+    where
+        S: Stream<Item = Result<Bytes>> + Send + Unpin + 'static,
+    {
+        let parser = GenericStreamParser::<S, ChatResponse, ChatStreamEvent>::new(stream);
+        ChatStream {
+            inner: Box::pin(parser),
+        }
+    }
+}
+
+impl StreamEventExt<ChatResponse> for ChatStreamEvent {
+    fn from_message(msg: ChatResponse) -> Self {
+        ChatStreamEvent::Message(msg)
+    }
+
+    fn from_error(err: String) -> Self {
+        ChatStreamEvent::Error(err)
+    }
+
+    fn partial(partial: String, error: Option<String>) -> Self {
+        ChatStreamEvent::Partial { partial, error }
     }
 }

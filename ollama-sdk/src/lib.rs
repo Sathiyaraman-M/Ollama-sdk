@@ -23,7 +23,7 @@ use thiserror::Error;
 
 mod builder;
 mod client;
-pub mod stream;
+pub mod parser;
 pub mod tools;
 pub mod transport;
 pub mod types;
