@@ -85,6 +85,38 @@ pub struct FunctionalTool {
     pub parameters: serde_json::Value,
 }
 
+/// Represents the nested `function` object in a tool call invocation.
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct FunctionCall {
+    /// If the model refers to a tool by index (index into the `tools` array
+    /// that was provided in the request), this field contains that index.
+    #[serde(default)]
+    pub index: Option<usize>,
+
+    /// The tool name, if the model provided it. Some models may omit the name
+    /// and only provide an index.
+    #[serde(default)]
+    pub name: Option<String>,
+
+    /// The actual arguments passed to the function call by the model.
+    #[serde(default)]
+    pub arguments: serde_json::Value,
+}
+
+/// Represents a single tool call reported by the model in a chat response.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum ToolCall {
+    /// Invocation shape: { "id": "call_xxx", "function": { ... } }
+    Invocation {
+        id: Option<String>,
+        function: FunctionCall,
+    },
+
+    /// Definition shape: { "name": "...", "description": "...", "parameters": {...} }
+    Function(FunctionalTool),
+}
+
 /// Represents a chat response from the Ollama API.
 ///
 /// This struct is used for non-streaming chat completions.
@@ -112,8 +144,12 @@ pub struct ChatResponseMessage {
     #[serde(default)]
     pub thinking: String,
     /// An optional list of tool calls made by the assistant.
+    ///
+    /// The model may emit tool calls in one of multiple shapes (an invocation object
+    /// with nested `function` or a direct functional description). We normalize those
+    /// into `ToolCall` values to make downstream handling more predictable.
     #[serde(default)]
-    pub tool_calls: Vec<FunctionalTool>,
+    pub tool_calls: Vec<ToolCall>,
 }
 
 impl From<ChatResponseMessage> for ChatRequestMessage {
@@ -121,10 +157,23 @@ impl From<ChatResponseMessage> for ChatRequestMessage {
     /// This is useful for continuing a conversation where the model's response
     /// becomes part of the next request's message history.
     fn from(value: ChatResponseMessage) -> Self {
+        let tool_calls = value
+            .tool_calls
+            .into_iter()
+            .map(|tc| match tc {
+                ToolCall::Function(f) => f,
+                ToolCall::Invocation { function, .. } => FunctionalTool {
+                    name: function.name.unwrap_or_default(),
+                    description: None,
+                    parameters: function.arguments,
+                },
+            })
+            .collect();
+
         ChatRequestMessage {
             role: value.role,
             content: value.content,
-            tool_calls: value.tool_calls,
+            tool_calls,
         }
     }
 }
