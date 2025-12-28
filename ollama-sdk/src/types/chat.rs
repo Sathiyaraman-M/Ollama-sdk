@@ -36,8 +36,18 @@ pub struct ChatRequest {
 }
 
 /// Represents a single message in a chat request.
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct ChatRequestMessage {
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum ChatRequestMessage {
+    /// A standard chat message.
+    Message(RegularChatRequestMessage),
+    /// A tool call result
+    ToolCallResult(ToolCallResultMessage),
+}
+
+/// Represents a standard chat message in a chat request.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct RegularChatRequestMessage {
     /// The role of the sender (e.g., `User`, `Assistant`, `System`).
     pub role: Role,
     /// The content of the message.
@@ -47,8 +57,8 @@ pub struct ChatRequestMessage {
     pub tool_calls: Vec<FunctionalTool>,
 }
 
-impl ChatRequestMessage {
-    /// Creates a new [`ChatRequestMessage`] with given [`Role`] and `content`
+impl RegularChatRequestMessage {
+    /// Creates a new [`RegularChatRequestMessage`].
     pub fn new(role: Role, content: String) -> Self {
         Self {
             role,
@@ -57,10 +67,45 @@ impl ChatRequestMessage {
         }
     }
 
-    /// Set a list of tool calls made by the LLM and returns the `ChatRequestMessage`
-    pub fn set_tool_calls(mut self, tool_calls: Vec<FunctionalTool>) -> Self {
-        self.tool_calls = tool_calls;
+    /// Adds a tool call to the message.
+    pub fn add_tool_call(mut self, tool: FunctionalTool) -> Self {
+        self.tool_calls.push(tool);
         self
+    }
+
+    /// Converts the [`RegularChatRequestMessage`] into a [`ChatRequestMessage`].
+    pub fn to_chat_request_message(self) -> ChatRequestMessage {
+        ChatRequestMessage::Message(self)
+    }
+}
+
+/// Represents a tool call result message in a chat request.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ToolCallResultMessage {
+    /// The role of the sender (e.g., `User`, `Assistant`, `System`).
+    pub role: Role,
+    /// The name of the tool.
+    pub name: String,
+    /// The content of the tool call result.
+    pub content: String,
+    /// The unique identifier for the tool call.
+    pub tool_call_id: String,
+}
+
+impl ToolCallResultMessage {
+    /// Creates a new [`ToolCallResultMessage`].
+    pub fn new(name: String, content: String, tool_call_id: String) -> Self {
+        Self {
+            role: Role::Tool,
+            name,
+            content,
+            tool_call_id,
+        }
+    }
+
+    /// Converts the [`ToolCallResultMessage`] into a [`ChatRequestMessage`].
+    pub fn to_chat_request_message(self) -> ChatRequestMessage {
+        ChatRequestMessage::ToolCallResult(self)
     }
 }
 
@@ -69,8 +114,7 @@ impl ChatRequestMessage {
 #[serde(tag = "type")]
 pub enum ToolSpec {
     /// A functional tool definition.
-    #[serde(rename = "function")]
-    Function(FunctionalTool),
+    Function { function: FunctionalTool },
 }
 
 /// Represents a functional tool that the model can call.
@@ -111,22 +155,29 @@ pub struct ChatResponseMessage {
     /// The model's internal "thinking" process, if enabled.
     #[serde(default)]
     pub thinking: String,
-    /// An optional list of tool calls made by the assistant.
+    // A list of tool calls made by the assistant.
     #[serde(default)]
-    pub tool_calls: Vec<FunctionalTool>,
+    pub tool_calls: Vec<ToolCall>,
 }
 
-impl From<ChatResponseMessage> for ChatRequestMessage {
-    /// Converts a [`ChatResponseMessage`] into a [`ChatRequestMessage`].
-    /// This is useful for continuing a conversation where the model's response
-    /// becomes part of the next request's message history.
-    fn from(value: ChatResponseMessage) -> Self {
-        ChatRequestMessage {
-            role: value.role,
-            content: value.content,
-            tool_calls: value.tool_calls,
-        }
-    }
+/// Represents a tool call made by the model in a chat response.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ToolCall {
+    /// Unique identifier for this tool call.
+    pub id: String,
+    /// The function invocation details.
+    pub function: FunctionInvocation,
+}
+
+/// Represents the details of a function invocation in a tool call.
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FunctionInvocation {
+    /// An optional index indicating the position of the function in a list.
+    pub index: Option<usize>,
+    /// The name of the function being invoked.
+    pub name: String,
+    /// The arguments passed to the function as a JSON value.
+    pub arguments: serde_json::Value,
 }
 
 /// A simplified chat request for non-streaming responses.
@@ -145,12 +196,25 @@ pub struct SimpleChatRequest {
 
 impl SimpleChatRequest {
     /// Creates a new [`SimpleChatRequest`].
-    pub fn new(model: String, messages: Vec<ChatRequestMessage>) -> Self {
+    pub fn new(model: String) -> Self {
         Self {
             model,
-            messages,
+            messages: Vec::new(),
             think: Thinking::default(),
         }
+    }
+
+    /// Adds a message to the chat request.
+    pub fn add_message(mut self, message: RegularChatRequestMessage) -> Self {
+        self.messages.push(ChatRequestMessage::Message(message));
+        self
+    }
+
+    /// Adds a tool call result message to the chat request.
+    pub fn add_tool_call_result(mut self, message: ToolCallResultMessage) -> Self {
+        self.messages
+            .push(ChatRequestMessage::ToolCallResult(message));
+        self
     }
 
     /// Sets `think` param in the API call to `true`.
@@ -191,13 +255,32 @@ pub struct StreamingChatRequest {
 
 impl StreamingChatRequest {
     /// Creates a new [`StreamingChatRequest`].
-    pub fn new(model: String, messages: Vec<ChatRequestMessage>) -> Self {
+    pub fn new(model: String) -> Self {
         Self {
             model,
-            messages,
+            messages: Vec::new(),
             tools: None,
             think: Thinking::default(),
         }
+    }
+
+    /// Adds a message to the chat request.
+    pub fn add_message(mut self, message: ChatRequestMessage) -> Self {
+        self.messages.push(message);
+        self
+    }
+
+    /// Adds a [`RegularChatRequestMessage`] to the chat request.
+    pub fn add_regular_message(mut self, message: RegularChatRequestMessage) -> Self {
+        self.messages.push(ChatRequestMessage::Message(message));
+        self
+    }
+
+    /// Adds a tool call result message to the chat request.
+    pub fn add_tool_call_result(mut self, message: ToolCallResultMessage) -> Self {
+        self.messages
+            .push(ChatRequestMessage::ToolCallResult(message));
+        self
     }
 
     /// Sets `think` param in the API call to `true`.

@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use futures::{stream, Stream, StreamExt};
 use ollama_sdk::parser::{GenericStreamParser, StreamEventExt};
+use ollama_sdk::types::chat::{ChatResponse, ChatStreamEvent};
 use ollama_sdk::Result;
 use serde::{Deserialize, Serialize};
 
@@ -239,5 +240,44 @@ async fn test_generic_parser_complex_partial_with_newline_then_complete() {
             content: "second full".to_string(),
         })
     );
+    assert!(parser.next().await.is_none());
+}
+
+#[tokio::test]
+async fn test_chat_parser_tool_call_invocation() {
+    // This test verifies that a chat-stream line containing a tool invocation
+    // in the shape returned by the model is parsed correctly into the
+    // ChatResponse/ToolCall structures.
+    let raw = r#"{"model":"llama3.2:3b","created_at":"2025-12-25T14:18:57.522402Z","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_etugzc4r","function":{"index":0,"name":"","arguments":{"n":"10"}}}]},"done":false}"#;
+    let stream = mock_byte_stream(vec![&format!("{}\n", raw)]);
+    let mut parser = GenericStreamParser::<_, ChatResponse, ChatStreamEvent>::new(stream);
+
+    let event = parser.next().await.unwrap().unwrap();
+    match event {
+        ChatStreamEvent::Message(resp) => {
+            assert_eq!(resp.model, "llama3.2:3b".to_string());
+            assert!(!resp.message.tool_calls.is_empty());
+
+            let tool_call = &resp.message.tool_calls[0];
+
+            assert_eq!(resp.message.tool_calls.len(), 1);
+            assert_eq!(tool_call.id, "call_etugzc4r");
+            assert_eq!(tool_call.function.index, Some(0));
+            // Name is present but empty in this invocation
+            assert!(tool_call.function.name.is_empty());
+            assert_eq!(
+                tool_call
+                    .function
+                    .arguments
+                    .get("n")
+                    .unwrap()
+                    .as_str()
+                    .unwrap(),
+                "10"
+            );
+        }
+        _ => panic!("expected message event"),
+    }
+
     assert!(parser.next().await.is_none());
 }
