@@ -126,6 +126,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut tool_was_called = false;
         let mut assistant_prefix_printed = false;
 
+        // Buffer for the assistant message (streamed in chunks) and any tool calls
+        let mut assistant_buffer = String::new();
+        // Keep track of tool calls we have already seen (by id) to avoid duplicate dispatches
+        let mut message_tool_calls: Vec<_> = Vec::new();
+        let mut seen_tool_call_ids: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+
         while let Some(event_res) = stream.next().await {
             match event_res {
                 Ok(event) => match event {
@@ -134,42 +141,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             print!("assistant: ");
                             assistant_prefix_printed = true;
                         }
+                        // Print streaming chunk immediately
                         print!("{}", response.message.content);
 
-                        history.push(ChatRequestMessage::Message(RegularChatRequestMessage::new(
-                            Role::Assistant,
-                            response.message.content.clone(),
-                        )));
+                        // Accumulate into a single assistant buffer (avoid pushing partial messages to history)
+                        assistant_buffer.push_str(&response.message.content);
 
-                        for tool_call in response.message.tool_calls.iter() {
-                            let tool_call_id = tool_call.id.clone();
-                            let name = tool_call.function.name.clone();
-                            if name == "fibonacci" {
-                                print!("[tool call: {}(", name);
-                                let n_value = tool_call
-                                    .function
-                                    .arguments
-                                    .get("n")
-                                    .and_then(|v| v.as_u64())
-                                    .unwrap_or(0);
-                                print!("n={} )]", n_value);
-                                let fib_result = FibonacciTool::fibonacci(n_value);
-                                let content = serde_json::to_string(
-                                    &serde_json::json!({ "result": fib_result }),
-                                )
-                                .unwrap();
-                                history.push(ChatRequestMessage::ToolCallResult(
-                                    ToolCallResultMessage::new(name, content, tool_call_id),
-                                ));
-                            } else {
-                                print!("[tool call: {}]", name);
+                        // Collect any tool-calls emitted in this stream message (they may arrive in the final chunk)
+                        if !response.message.tool_calls.is_empty() {
+                            for tool_call in response.message.tool_calls.iter() {
+                                // Deduplicate by tool call id so repeated chunks don't cause repeated dispatch
+                                let is_new = seen_tool_call_ids.insert(tool_call.id.clone());
+                                if is_new {
+                                    message_tool_calls.push(tool_call.clone());
+                                    let name = tool_call.function.name.clone();
+                                    if name == "fibonacci" {
+                                        if let Ok(n_value) =
+                                            FibonacciTool::parse_n(&tool_call.function.arguments)
+                                        {
+                                            print!("[tool call: {}(n={} )]", name, n_value);
+                                        } else {
+                                            print!("[tool call: {}]", name);
+                                        }
+                                    } else {
+                                        print!("[tool call: {}]", name);
+                                    }
+                                } else {
+                                    // Duplicate tool call id received in another chunk; ignore.
+                                }
                             }
                         }
 
-                        // history.push(response.message.clone());
+                        // Only once the message is complete do we push it to history and handle tool calls.
+                        if response.done {
+                            history.push(ChatRequestMessage::Message(
+                                RegularChatRequestMessage::new(
+                                    Role::Assistant,
+                                    assistant_buffer.clone(),
+                                ),
+                            ));
 
-                        if !response.message.tool_calls.is_empty() {
-                            for call in response.message.tool_calls.iter() {
+                            // If there are no tool calls, we're done.
+                            if message_tool_calls.is_empty() {
+                                println!("assistant: [done]");
+                                return Ok(());
+                            }
+
+                            // Handle the first tool call in this message (subsequent calls can be handled in later iterations).
+                            for call in message_tool_calls.iter() {
                                 let tool_name = call.function.clone().name;
                                 let tool_call_id = call.id.clone();
                                 let params = call.function.arguments.clone();
@@ -236,11 +255,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if tool_was_called {
                                 break;
                             }
-                        }
-
-                        if response.done && response.message.tool_calls.is_empty() {
-                            println!("assistant: [done]");
-                            return Ok(());
                         }
                     }
                     ChatStreamEvent::Error(err) => {
