@@ -95,11 +95,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }),
     };
 
-    let user_prompt = format!(
-        "Use the `fibonacci` function to compute fibonacci(n) and return the value. \
+    let user_prompt = "Use the `fibonacci` function to compute fibonacci(n) and return the value. \
         For example, compute fibonacci for n=31 and n=11. Make sure to call the function \
         instead of trying to compute it yourself or making up values."
-    );
+        .to_string();
 
     let mut history = vec![
         RegularChatRequestMessage::new(Role::User, user_prompt.clone()).to_chat_request_message(),
@@ -188,7 +187,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
 
                             // Handle the first tool call in this message (subsequent calls can be handled in later iterations).
-                            for call in message_tool_calls.iter() {
+                            if let Some(call) = message_tool_calls.first() {
                                 let tool_name = call.function.clone().name;
                                 let tool_call_id = call.id.clone();
                                 let params = call.function.arguments.clone();

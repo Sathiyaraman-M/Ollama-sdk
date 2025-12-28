@@ -256,7 +256,7 @@ async fn test_chat_parser_tool_call_invocation() {
     match event {
         ChatStreamEvent::Message(resp) => {
             assert_eq!(resp.model, "llama3.2:3b".to_string());
-            assert_eq!(resp.message.tool_calls.is_empty(), false);
+            assert!(!resp.message.tool_calls.is_empty());
 
             let tool_call = &resp.message.tool_calls[0];
 
