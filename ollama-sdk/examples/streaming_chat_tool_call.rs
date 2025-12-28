@@ -153,18 +153,29 @@ where
                 // Once the message is complete, either finish or dispatch the first tool.
                 if response.done {
                     println!();
-                    history.push(ChatRequestMessage::Message(RegularChatRequestMessage::new(
-                        Role::Assistant,
-                        assistant_buffer.clone(),
-                    )));
+                    let mut assistant_msg =
+                        RegularChatRequestMessage::new(Role::Assistant, assistant_buffer.clone());
+                    for call in &collected_calls {
+                        let func = FunctionalTool {
+                            name: call.function.name.clone(),
+                            description: None, // Description is missing here. Need to fix this later.
+                            parameters: call.function.arguments.clone(),
+                        };
+                        assistant_msg = assistant_msg.add_tool_call(func);
+                    }
+                    history.push(ChatRequestMessage::Message(assistant_msg));
 
                     if collected_calls.is_empty() {
                         println!("assistant: [done]");
                         return Ok(false);
                     }
 
-                    let result_msg = dispatch_tool_call(&collected_calls[0], tools).await;
-                    history.push(ChatRequestMessage::ToolCallResult(result_msg));
+                    for call in &collected_calls {
+                        println!("assistant: [dispatching tool: {}]", call.function.name);
+                        let result_msg = dispatch_tool_call(call, tools).await;
+                        history.push(ChatRequestMessage::ToolCallResult(result_msg));
+                    }
+
                     return Ok(true);
                 }
             }

@@ -155,7 +155,7 @@ pub struct ChatResponseMessage {
     /// The model's internal "thinking" process, if enabled.
     #[serde(default)]
     pub thinking: String,
-    // An list of tool calls made by the assistant.
+    // A list of tool calls made by the assistant.
     #[serde(default)]
     pub tool_calls: Vec<ToolCall>,
 }
@@ -163,6 +163,7 @@ pub struct ChatResponseMessage {
 /// Represents a tool call made by the model in a chat response.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ToolCall {
+    /// Unique identifier for this tool call.
     pub id: String,
     /// The function invocation details.
     pub function: FunctionInvocation,
