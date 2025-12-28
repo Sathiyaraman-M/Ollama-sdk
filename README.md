@@ -1,12 +1,12 @@
 # Ollama-sdk
 
-An idiomatic Rust library for interacting with the Ollama API, focusing on streaming, tool calling, and ease of use.
+An idiomatic low-level Rust library for interacting with the Ollama API.
 
 > [!NOTE]
 > This is not an official Ollama SDK.
 
 > [!WARNING]
-> This library is currently in pre-alpha so don't use it in production.
+> This library is currently in pre-alpha so don't use it in production. There are frequent breaking changes and the API is not stable.
 
 ## Features
 
