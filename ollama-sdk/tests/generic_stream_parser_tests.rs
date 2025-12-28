@@ -1,8 +1,8 @@
 use bytes::Bytes;
 use futures::{stream, Stream, StreamExt};
 use ollama_sdk::parser::{GenericStreamParser, StreamEventExt};
+use ollama_sdk::types::chat::{ChatResponse, ChatStreamEvent};
 use ollama_sdk::Result;
-use ollama_sdk::types::chat::{ChatResponse, ChatStreamEvent, ToolCall};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -258,20 +258,23 @@ async fn test_chat_parser_tool_call_invocation() {
             assert_eq!(resp.model, "llama3.2:3b".to_string());
             assert_eq!(resp.message.tool_calls.is_empty(), false);
 
-            match &resp.message.tool_calls[0] {
-                ToolCall::Invocation { id, function } => {
-                    assert_eq!(id.as_deref(), Some("call_etugzc4r"));
-                    assert_eq!(function.index, Some(0));
-                    // Name is present but empty in this invocation
-                    assert!(function
-                        .name
-                        .as_ref()
-                        .map(|s| s.is_empty())
-                        .unwrap_or(false));
-                    assert_eq!(function.arguments.get("n").unwrap().as_str().unwrap(), "10");
-                }
-                _ => panic!("expected invocation variant"),
-            }
+            let tool_call = &resp.message.tool_calls[0];
+
+            assert_eq!(resp.message.tool_calls.len(), 1);
+            assert_eq!(tool_call.id, "call_etugzc4r");
+            assert_eq!(tool_call.function.index, Some(0));
+            // Name is present but empty in this invocation
+            assert!(tool_call.function.name.is_empty());
+            assert_eq!(
+                tool_call
+                    .function
+                    .arguments
+                    .get("n")
+                    .unwrap()
+                    .as_str()
+                    .unwrap(),
+                "10"
+            );
         }
         _ => panic!("expected message event"),
     }

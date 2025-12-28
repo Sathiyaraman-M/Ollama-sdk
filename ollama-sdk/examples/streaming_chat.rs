@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use ollama_sdk::{
     types::{
-        chat::{ChatRequestMessage, ChatStreamEvent, StreamingChatRequest},
+        chat::{ChatStreamEvent, RegularChatRequestMessage, StreamingChatRequest},
         Role,
     },
     OllamaClient,
@@ -13,12 +13,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let model = "llama3.2:3b".to_string();
 
-    let messages = vec![ChatRequestMessage::new(
-        Role::User,
-        "Tell me a story about a Rust programmer.".to_string(),
-    )];
+    let message =
+        RegularChatRequestMessage::new(Role::User, "What is the capital of France?".to_string());
 
-    let chat_request = StreamingChatRequest::new(model, messages);
+    let chat_request = StreamingChatRequest::new(model).add_regular_message(message);
 
     let mut stream = client.chat_stream(chat_request).await?;
 

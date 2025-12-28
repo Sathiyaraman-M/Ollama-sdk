@@ -9,8 +9,8 @@ use ollama_sdk::{
     tools::{Tool, ToolContext},
     types::{
         chat::{
-            ChatRequestMessage, ChatStreamEvent, FunctionalTool, StreamingChatRequest, ToolCall,
-            ToolSpec,
+            ChatRequestMessage, ChatStreamEvent, FunctionalTool, RegularChatRequestMessage,
+            StreamingChatRequest, ToolCallResultMessage, ToolSpec,
         },
         Role,
     },
@@ -101,9 +101,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         instead of trying to compute it yourself or making up values."
     );
 
-    let mut history = vec![ChatRequestMessage::new(Role::User, user_prompt.clone())];
+    let mut history = vec![
+        RegularChatRequestMessage::new(Role::User, user_prompt.clone()).to_chat_request_message(),
+    ];
 
-    let tools = vec![ToolSpec::Function(fib_tool_spec.clone())];
+    let tools = vec![ToolSpec::Function {
+        function: fib_tool_spec.clone(),
+    }];
 
     println!("user: {}", user_prompt);
 
@@ -111,8 +115,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tool_map.insert(fib_tool.name().to_string(), fib_tool.clone());
 
     loop {
-        let request =
-            StreamingChatRequest::new(model.clone(), history.clone()).tools(tools.clone());
+        let mut request = StreamingChatRequest::new(model.clone()).tools(tools.clone());
+
+        for msg in history.iter() {
+            request = request.add_message(msg.clone());
+        }
+
         let mut stream = client.chat_stream(request).await?;
 
         let mut tool_was_called = false;
@@ -128,45 +136,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         print!("{}", response.message.content);
 
-                        history.push(response.message.clone().into());
+                        history.push(ChatRequestMessage::Message(RegularChatRequestMessage::new(
+                            Role::Assistant,
+                            response.message.content.clone(),
+                        )));
+
+                        for tool_call in response.message.tool_calls.iter() {
+                            let tool_call_id = tool_call.id.clone();
+                            let name = tool_call.function.name.clone();
+                            if name == "fibonacci" {
+                                print!("[tool call: {}(", name);
+                                let n_value = tool_call
+                                    .function
+                                    .arguments
+                                    .get("n")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+                                print!("n={} )]", n_value);
+                                let fib_result = FibonacciTool::fibonacci(n_value);
+                                let content = serde_json::to_string(
+                                    &serde_json::json!({ "result": fib_result }),
+                                )
+                                .unwrap();
+                                history.push(ChatRequestMessage::ToolCallResult(
+                                    ToolCallResultMessage::new(name, content, tool_call_id),
+                                ));
+                            } else {
+                                print!("[tool call: {}]", name);
+                            }
+                        }
+
+                        // history.push(response.message.clone());
 
                         if !response.message.tool_calls.is_empty() {
                             for call in response.message.tool_calls.iter() {
-                                let (maybe_name, params_value) = match call {
-                                    ToolCall::Invocation { function, .. } => (
-                                        function.name.as_ref().and_then(|s| {
-                                            if s.is_empty() {
-                                                None
-                                            } else {
-                                                Some(s.clone())
-                                            }
-                                        }),
-                                        function.arguments.clone(),
-                                    ),
-                                    ToolCall::Function(f) => {
-                                        (Some(f.name.clone()), f.parameters.clone())
-                                    }
-                                };
+                                let tool_name = call.function.clone().name;
+                                let tool_call_id = call.id.clone();
+                                let params = call.function.arguments.clone();
 
-                                let tool_name = if let Some(n) = maybe_name {
-                                    n
-                                } else if let ToolCall::Invocation { function, .. } = call {
-                                    if let Some(idx) = function.index {
-                                        if let Some(ToolSpec::Function(ft)) = tools.get(idx) {
-                                            ft.name.clone()
-                                        } else {
-                                            "<unknown>".to_string()
-                                        }
-                                    } else {
-                                        "<unknown>".to_string()
-                                    }
-                                } else {
-                                    "<unknown>".to_string()
-                                };
-
-                                println!("tool_call: {} params: {}", tool_name, params_value);
-
-                                let params = params_value.clone();
                                 let ctx = ToolContext {
                                     cancellation_token: CancellationToken::new(),
                                 };
@@ -179,12 +186,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 tool_name, tool_result
                                             );
 
-                                            let tool_msg = ChatRequestMessage::new(
-                                                Role::Tool,
+                                            let tool_msg = ToolCallResultMessage::new(
+                                                tool_name.clone(),
                                                 serde_json::to_string(&tool_result)
                                                     .unwrap_or_else(|_| tool_result.to_string()),
+                                                call.id.clone(),
                                             );
-                                            history.push(tool_msg);
+                                            history
+                                                .push(ChatRequestMessage::ToolCallResult(tool_msg));
 
                                             tool_was_called = true;
                                             break;
@@ -195,11 +204,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 tool_name, e
                                             );
 
-                                            let tool_msg = ChatRequestMessage::new(
-                                                Role::Tool,
-                                                format!("Tool error: {}", e),
+                                            let tool_msg = ToolCallResultMessage::new(
+                                                tool_name.clone(),
+                                                format!("Tool invocation error: {}", e),
+                                                tool_call_id,
                                             );
-                                            history.push(tool_msg);
+                                            history
+                                                .push(ChatRequestMessage::ToolCallResult(tool_msg));
 
                                             tool_was_called = true;
                                             break;
@@ -210,11 +221,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         "tool_result: {} error: No registered tool named '{}'",
                                         tool_name, tool_name
                                     );
-                                    let tool_msg = ChatRequestMessage::new(
-                                        Role::Tool,
+                                    let tool_msg = ToolCallResultMessage::new(
+                                        tool_name.clone(),
                                         format!("Tool '{}' not found", tool_name),
+                                        tool_call_id,
                                     );
-                                    history.push(tool_msg);
+                                    history.push(ChatRequestMessage::ToolCallResult(tool_msg));
 
                                     tool_was_called = true;
                                     break;

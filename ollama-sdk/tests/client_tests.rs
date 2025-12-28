@@ -5,8 +5,8 @@ use futures::StreamExt;
 
 use ollama_sdk::transport::MockTransport;
 use ollama_sdk::types::chat::{
-    ChatRequestMessage, ChatResponse, ChatResponseMessage, ChatStreamEvent, SimpleChatRequest,
-    StreamingChatRequest,
+    ChatResponse, ChatResponseMessage, ChatStreamEvent, RegularChatRequestMessage,
+    SimpleChatRequest, StreamingChatRequest,
 };
 use ollama_sdk::types::{HttpResponse, Role};
 use ollama_sdk::OllamaClient;
@@ -34,15 +34,8 @@ async fn test_chat_simple() -> Result<()> {
         .transport(mock_transport) // Pass the mock transport to the builder
         .build()?;
 
-    let request = SimpleChatRequest {
-        model: "test-model".to_string(),
-        messages: vec![ChatRequestMessage {
-            role: Role::User,
-            content: "Hi".to_string(),
-            ..Default::default()
-        }],
-        ..Default::default()
-    };
+    let request = SimpleChatRequest::new("test-model".to_string())
+        .add_message(RegularChatRequestMessage::new(Role::User, "Hi".to_string()));
 
     let response = client.chat_simple(request).await?;
     assert_eq!(response.message.content, expected_response.message.content);
@@ -63,15 +56,9 @@ async fn test_chat_stream() -> Result<()> {
         .transport(mock_transport)
         .build()?;
 
-    let request = StreamingChatRequest {
-        model: "test-model".to_string(),
-        messages: vec![ChatRequestMessage {
-            role: Role::User,
-            content: "Stream me".to_string(),
-            ..Default::default()
-        }],
-        ..Default::default()
-    };
+    let request = StreamingChatRequest::new("test-model".to_string()).add_regular_message(
+        RegularChatRequestMessage::new(Role::User, "Stream me".to_string()),
+    );
 
     let mut stream = client.chat_stream(request).await?;
     let mut received_content = String::new();
