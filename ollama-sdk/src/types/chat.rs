@@ -45,6 +45,7 @@ pub enum ChatRequestMessage {
     ToolCallResult(ToolCallResultMessage),
 }
 
+/// Represents a standard chat message in a chat request.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct RegularChatRequestMessage {
     /// The role of the sender (e.g., `User`, `Assistant`, `System`).
@@ -57,6 +58,7 @@ pub struct RegularChatRequestMessage {
 }
 
 impl RegularChatRequestMessage {
+    /// Creates a new [`RegularChatRequestMessage`].
     pub fn new(role: Role, content: String) -> Self {
         Self {
             role,
@@ -65,16 +67,19 @@ impl RegularChatRequestMessage {
         }
     }
 
+    /// Adds a tool call to the message.
     pub fn add_tool_call(mut self, tool: FunctionalTool) -> Self {
         self.tool_calls.push(tool);
         self
     }
 
+    /// Converts the [`RegularChatRequestMessage`] into a [`ChatRequestMessage`].
     pub fn to_chat_request_message(self) -> ChatRequestMessage {
         ChatRequestMessage::Message(self)
     }
 }
 
+/// Represents a tool call result message in a chat request.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ToolCallResultMessage {
     /// The role of the sender (e.g., `User`, `Assistant`, `System`).
@@ -88,6 +93,7 @@ pub struct ToolCallResultMessage {
 }
 
 impl ToolCallResultMessage {
+    /// Creates a new [`ToolCallResultMessage`].
     pub fn new(name: String, content: String, tool_call_id: String) -> Self {
         Self {
             role: Role::Tool,
@@ -97,6 +103,7 @@ impl ToolCallResultMessage {
         }
     }
 
+    /// Converts the [`ToolCallResultMessage`] into a [`ChatRequestMessage`].
     pub fn to_chat_request_message(self) -> ChatRequestMessage {
         ChatRequestMessage::ToolCallResult(self)
     }
@@ -148,10 +155,7 @@ pub struct ChatResponseMessage {
     /// The model's internal "thinking" process, if enabled.
     #[serde(default)]
     pub thinking: String,
-    // An optional list of tool calls made by the assistant.
-    /// The model may emit tool calls in one of multiple shapes (an invocation object
-    /// with nested `function` or a direct functional description). We normalize those
-    /// into `ToolCall` values to make downstream handling more predictable.
+    // An list of tool calls made by the assistant.
     #[serde(default)]
     pub tool_calls: Vec<ToolCall>,
 }
@@ -259,12 +263,13 @@ impl StreamingChatRequest {
         }
     }
 
+    /// Adds a message to the chat request.
     pub fn add_message(mut self, message: ChatRequestMessage) -> Self {
         self.messages.push(message);
         self
     }
 
-    /// Adds a message to the chat request.
+    /// Adds a [`RegularChatRequestMessage`] to the chat request.
     pub fn add_regular_message(mut self, message: RegularChatRequestMessage) -> Self {
         self.messages.push(ChatRequestMessage::Message(message));
         self
