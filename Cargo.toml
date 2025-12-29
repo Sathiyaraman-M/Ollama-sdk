@@ -3,7 +3,7 @@ resolver = "2"
 members = ["ollama-sdk", "ollama-sdk-macros"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = ["Sathiyaraman-M <sathiyaraman2003@gmail.com>"]
 license = "MIT"
@@ -13,4 +13,4 @@ categories = ["api-bindings", "asynchronous", "web-programming"]
 repository = "https://github.com/Sathiyaraman-M/ollama-sdk"
 
 [workspace.dependencies]
-ollama-sdk-macros = { path = "ollama-sdk-macros", version = "0.4.0" }
+ollama-sdk-macros = { path = "ollama-sdk-macros", version = "0.4.1" }
