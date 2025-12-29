@@ -10,7 +10,7 @@ license = "MIT"
 description = "An idiomatic, unofficial Rust client for the Ollama API with support for streaming, tool calling, and custom transports."
 keywords = ["ollama", "ai", "llm", "chatbot", "sdk"]
 categories = ["api-bindings", "asynchronous", "web-programming"]
-repository = "https://github.com/SathiyaramanM/ollama-sdk"
+repository = "https://github.com/Sathiyaraman-M/ollama-sdk"
 
 [workspace.dependencies]
 ollama-sdk-macros = { path = "ollama-sdk-macros", version = "0.4.0" }
